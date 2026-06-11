@@ -105,8 +105,9 @@ mono_crash.*
 *.assetpackage.meta
 
 # Unused imported art-pack source. Keep only curated assets used by the demo.
-/[Aa]ssets/_Game/[Aa]rt/[Ee]xternal/
-/[Aa]ssets/_Game/[Aa]rt/[Ee]xternal/
+# The active tile assets in /Assets/Art remain tracked.
+/[Aa]ssets/[Aa]rt/[Ee]xternal/
+/[Aa]ssets/[Aa]rt/[Ee]xternal.meta
 
 # Crashlytics generated file
 crashlytics-build.properties
