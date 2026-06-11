@@ -20,6 +20,16 @@
 /[Uu]ser[Ss]ettings/
 *.log
 
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
 # By default unity supports Blender asset imports, *.blend1 blender files do not need to be committed to version control.
 *.blend1
 *.blend1.meta
@@ -41,6 +51,8 @@
 
 # Visual Studio cache directory
 .vs/
+.vscode/
+.idea/
 
 # Gradle cache directory
 .gradle/
@@ -51,6 +63,7 @@ ExportedObj/
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
@@ -80,18 +93,46 @@ mono_crash.*
 *.unitypackage
 *.unitypackage.meta
 *.app
+*.exe
+*.dmg
+*.pkg
+*.zip
+*.7z
+*.rar
+
+# Keep project assets in Git, but do not keep local export archives.
+*.assetpackage
+*.assetpackage.meta
+
+# Unused imported art-pack source. Keep only curated assets used by the demo.
+/[Aa]ssets/_Game/[Aa]rt/[Ee]xternal/
+/[Aa]ssets/_Game/[Aa]rt/[Ee]xternal/
 
 # Crashlytics generated file
 crashlytics-build.properties
 
+# Unity crash/profiler/coverage output
+*.stackdump
+*.dmp
+*.trace
+*.coverage
+*.coveragexml
+/[Cc]overage[Rr]eport/
+/[Pp]rofiler[Cc]aptures/
+
 # TestRunner generated files
 InitTestScene*.unity*
+TestResults/
+test-results/
+*.trx
+*.xml
 
 # Addressables default ignores, before user customizations
 /ServerData
 /[Aa]ssets/StreamingAssets/aa*
 /[Aa]ssets/AddressableAssetsData/link.xml*
 /[Aa]ssets/Addressables_Temp*
+/[Aa]ssets/AddressableAssetsData/*/addressables_content_state.bin*
 # By default, Addressables content builds will generate addressables_content_state.bin
 # files in platform-specific subfolders, for example:
 # /Assets/AddressableAssetsData/OSX/addressables_content_state.bin
@@ -105,3 +146,7 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Local save/debug data should never be committed.
+/[Ss]aves/
+/[Dd]ebug[Dd]ata/

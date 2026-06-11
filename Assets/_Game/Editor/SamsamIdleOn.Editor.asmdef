@@ -1,0 +1,19 @@
+{
+  "name": "SamsamIdleOn.Editor",
+  "rootNamespace": "SamsamIdleOn.Editor",
+  "references": [
+    "SamsamIdleOn.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
+
