@@ -1,7 +1,9 @@
 {
   "name": "SamsamIdleOn.Runtime",
   "rootNamespace": "SamsamIdleOn",
-  "references": [],
+  "references": [
+    "Unity.InputSystem"
+  ],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
@@ -12,4 +14,3 @@
   "versionDefines": [],
   "noEngineReferences": false
 }
-
