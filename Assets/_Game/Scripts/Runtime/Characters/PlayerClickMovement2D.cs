@@ -179,6 +179,11 @@ namespace SamsamIdleOn.Characters
             DestinationChanged?.Invoke(destination);
         }
 
+        public void RouteTo(Vector2 worldPosition)
+        {
+            SetDestinationFromClick(worldPosition);
+        }
+
         public void Stop()
         {
             hasDestination = false;
