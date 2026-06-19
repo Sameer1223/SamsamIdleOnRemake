@@ -2,7 +2,8 @@
   "name": "SamsamIdleOn.Runtime",
   "rootNamespace": "SamsamIdleOn",
   "references": [
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

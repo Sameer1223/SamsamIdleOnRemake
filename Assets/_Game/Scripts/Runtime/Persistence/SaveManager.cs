@@ -30,7 +30,9 @@ namespace SamsamIdleOn.Persistence
             {
                 string json = File.ReadAllText(savePath);
                 SaveData loaded = JsonUtility.FromJson<SaveData>(json);
-                return loaded ?? SaveData.CreateNew(utcNow);
+                SaveData saveData = loaded ?? SaveData.CreateNew(utcNow);
+                saveData.EnsureDefaults();
+                return saveData;
             }
             catch (Exception exception)
             {
@@ -42,6 +44,7 @@ namespace SamsamIdleOn.Persistence
         public void Save(SaveData saveData, DateTime utcNow, bool markClosed)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(savePath) ?? Application.persistentDataPath);
+            saveData.EnsureDefaults();
 
             string timestamp = utcNow.ToString("O");
             saveData.lastSavedUtc = timestamp;
@@ -64,4 +67,3 @@ namespace SamsamIdleOn.Persistence
         }
     }
 }
-
