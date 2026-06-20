@@ -396,8 +396,19 @@ namespace SamsamIdleOn.Characters
             }
 
             float dismountY = GetDismountY(surfaceY);
+            float currentSurfaceY = GetCurrentSurfaceY();
 
-            if (!useClimbZones || Mathf.Abs(dismountY - body.position.y) < verticalRouteThreshold)
+            if (!useClimbZones)
+            {
+                MoveTo(clickedWorldPosition);
+                return true;
+            }
+
+            bool isSameVerticalLevel = Mathf.Abs(dismountY - body.position.y) < verticalRouteThreshold;
+            bool hasDirectHorizontalRoute = Mathf.Abs(surfaceY - currentSurfaceY) <= walkableSurfaceClickTolerance
+                && HasWalkableSurfaceBetween(body.position.x, clickedWorldPosition.x, currentSurfaceY);
+
+            if (isSameVerticalLevel && hasDirectHorizontalRoute)
             {
                 MoveTo(clickedWorldPosition);
                 return true;
@@ -493,7 +504,10 @@ namespace SamsamIdleOn.Characters
 
             foreach (ClimbZone2D climbZone in climbZones)
             {
-                if (climbZone == null)
+                if (climbZone == null
+                    || !CanConnectPlayerHeights(climbZone, currentPosition.y, currentSurfaceY, dismountY, surfaceY)
+                    || !HasWalkableSurfaceBetween(currentPosition.x, climbZone.CenterX, currentSurfaceY)
+                    || !HasWalkableSurfaceBetween(climbZone.CenterX, clickedWorldPosition.x, surfaceY))
                 {
                     continue;
                 }
@@ -511,16 +525,233 @@ namespace SamsamIdleOn.Characters
 
             if (bestZone == null)
             {
-                return false;
+                return TryBuildTwoClimbRoute(clickedWorldPosition, surfaceY, dismountY, currentPosition, currentSurfaceY);
             }
 
             route.Clear();
             route.Add(new MovementStep(bestZone.GetPointAtHeight(currentPosition.y), MovementStepType.Horizontal));
-            route.Add(new MovementStep(new Vector2(bestZone.CenterX, dismountY), MovementStepType.Vertical));
+            route.Add(new MovementStep(bestZone.GetPointAtHeight(dismountY), MovementStepType.Vertical));
             route.Add(new MovementStep(new Vector2(clickedWorldPosition.x, dismountY), MovementStepType.ClimbDismount));
             LogMovement(
                 $"Built climb route via {bestZone.name}: current={currentPosition}, currentSurfaceY={currentSurfaceY:0.###}, target={clickedWorldPosition}, surfaceY={surfaceY:0.###}, dismountY={dismountY:0.###}");
             return true;
+        }
+
+        private bool TryBuildTwoClimbRoute(
+            Vector2 clickedWorldPosition,
+            float targetSurfaceY,
+            float targetDismountY,
+            Vector2 currentPosition,
+            float currentSurfaceY)
+        {
+            ClimbZone2D firstZone = null;
+            ClimbZone2D secondZone = null;
+            float transferDismountY = 0f;
+            float bestCost = float.MaxValue;
+
+            foreach (ClimbZone2D fromZone in climbZones)
+            {
+                if (fromZone == null
+                    || !CanReachHeight(fromZone, currentPosition.y, currentSurfaceY)
+                    || !HasWalkableSurfaceBetween(currentPosition.x, fromZone.CenterX, currentSurfaceY))
+                {
+                    continue;
+                }
+
+                foreach (ClimbZone2D toZone in climbZones)
+                {
+                    if (toZone == null
+                        || toZone == fromZone
+                        || !CanReachHeight(toZone, targetDismountY, targetSurfaceY)
+                        || !HasWalkableSurfaceBetween(toZone.CenterX, clickedWorldPosition.x, targetSurfaceY)
+                        || !TryFindTransferDismountY(fromZone, toZone, out float candidateTransferY))
+                    {
+                        continue;
+                    }
+
+                    float cost = Mathf.Abs(currentPosition.x - fromZone.CenterX)
+                        + Mathf.Abs(candidateTransferY - currentPosition.y)
+                        + Mathf.Abs(fromZone.CenterX - toZone.CenterX)
+                        + Mathf.Abs(targetDismountY - candidateTransferY)
+                        + Mathf.Abs(clickedWorldPosition.x - toZone.CenterX);
+
+                    if (cost >= bestCost)
+                    {
+                        continue;
+                    }
+
+                    bestCost = cost;
+                    firstZone = fromZone;
+                    secondZone = toZone;
+                    transferDismountY = candidateTransferY;
+                }
+            }
+
+            if (firstZone == null || secondZone == null)
+            {
+                return false;
+            }
+
+            route.Clear();
+            route.Add(new MovementStep(firstZone.GetPointAtHeight(currentPosition.y), MovementStepType.Horizontal));
+            route.Add(new MovementStep(firstZone.GetPointAtHeight(transferDismountY), MovementStepType.Vertical));
+            route.Add(new MovementStep(new Vector2(secondZone.CenterX, transferDismountY), MovementStepType.Horizontal));
+            route.Add(new MovementStep(secondZone.GetPointAtHeight(targetDismountY), MovementStepType.Vertical));
+            route.Add(new MovementStep(new Vector2(clickedWorldPosition.x, targetDismountY), MovementStepType.ClimbDismount));
+            LogMovement(
+                $"Built two-rope route via {firstZone.name} -> {secondZone.name}: current={currentPosition}, target={clickedWorldPosition}, transferDismountY={transferDismountY:0.###}, targetDismountY={targetDismountY:0.###}");
+            return true;
+        }
+
+        private bool CanConnectPlayerHeights(
+            ClimbZone2D climbZone,
+            float currentBodyY,
+            float currentSurfaceY,
+            float targetBodyY,
+            float targetSurfaceY)
+        {
+            return CanReachHeight(climbZone, currentBodyY, currentSurfaceY)
+                && CanReachHeight(climbZone, targetBodyY, targetSurfaceY);
+        }
+
+        private bool CanReachHeight(ClimbZone2D climbZone, float bodyY, float surfaceY)
+        {
+            return IsHeightInsideClimbZone(climbZone, bodyY)
+                || IsHeightInsideClimbZone(climbZone, surfaceY);
+        }
+
+        private bool TryFindTransferDismountY(ClimbZone2D firstZone, ClimbZone2D secondZone, out float transferDismountY)
+        {
+            Bounds firstBounds = firstZone.ClimbBounds;
+            Bounds secondBounds = secondZone.ClimbBounds;
+            float midpointX = (firstZone.CenterX + secondZone.CenterX) * 0.5f;
+            float[] candidateHeights =
+            {
+                Mathf.Min(firstBounds.min.y, secondBounds.min.y),
+                Mathf.Max(firstBounds.min.y, secondBounds.min.y),
+                Mathf.Min(firstBounds.max.y, secondBounds.max.y),
+                Mathf.Max(firstBounds.max.y, secondBounds.max.y),
+                (Mathf.Max(firstBounds.min.y, secondBounds.min.y) + Mathf.Min(firstBounds.max.y, secondBounds.max.y)) * 0.5f
+            };
+
+            float bestCost = float.MaxValue;
+            transferDismountY = 0f;
+            bool foundTransfer = false;
+
+            foreach (float candidateHeight in candidateHeights)
+            {
+                if (!TryGetWalkableSurfaceNearHeight(midpointX, candidateHeight, out float transferSurfaceY)
+                    || !HasWalkableSurfaceBetween(firstZone.CenterX, secondZone.CenterX, transferSurfaceY))
+                {
+                    continue;
+                }
+
+                float candidateDismountY = GetDismountY(transferSurfaceY);
+
+                if (!CanReachHeight(firstZone, candidateDismountY, transferSurfaceY)
+                    || !CanReachHeight(secondZone, candidateDismountY, transferSurfaceY))
+                {
+                    continue;
+                }
+
+                float cost = Mathf.Abs(candidateDismountY - candidateHeight);
+
+                if (cost >= bestCost)
+                {
+                    continue;
+                }
+
+                bestCost = cost;
+                transferDismountY = candidateDismountY;
+                foundTransfer = true;
+            }
+
+            return foundTransfer;
+        }
+
+        private bool HasWalkableSurfaceBetween(float startX, float endX, float expectedSurfaceY)
+        {
+            const int sampleCount = 7;
+            float surfaceTolerance = Mathf.Max(0.15f, walkableSurfaceClickTolerance);
+            float distance = Mathf.Abs(endX - startX);
+
+            if (distance <= walkableClickProbeRadius)
+            {
+                return TryGetWalkableSurfaceAtHeight((startX + endX) * 0.5f, expectedSurfaceY, surfaceTolerance, out _);
+            }
+
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float t = (i + 0.5f) / sampleCount;
+                float x = Mathf.Lerp(startX, endX, t);
+
+                if (!TryGetWalkableSurfaceAtHeight(x, expectedSurfaceY, surfaceTolerance, out _))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private bool TryGetWalkableSurfaceAtHeight(float x, float expectedSurfaceY, float tolerance, out float surfaceY)
+        {
+            float verticalPadding = Mathf.Max(0.05f, tolerance);
+            Vector2 rayOrigin = new(x, expectedSurfaceY + verticalPadding);
+            float rayDistance = verticalPadding * 2f;
+            RaycastHit2D[] hits = Physics2D.RaycastAll(rayOrigin, Vector2.down, rayDistance, walkableLayers);
+            float bestDistance = float.MaxValue;
+            surfaceY = expectedSurfaceY;
+
+            foreach (RaycastHit2D hit in hits)
+            {
+                if (hit.collider == null || hit.collider.isTrigger)
+                {
+                    continue;
+                }
+
+                float distance = Mathf.Abs(hit.point.y - expectedSurfaceY);
+
+                if (distance > tolerance || distance >= bestDistance)
+                {
+                    continue;
+                }
+
+                bestDistance = distance;
+                surfaceY = hit.point.y;
+            }
+
+            return bestDistance < float.MaxValue;
+        }
+
+        private bool TryGetWalkableSurfaceNearHeight(float x, float expectedY, out float surfaceY)
+        {
+            float probeHeight = Mathf.Max(walkableSurfaceProbeHeight, climbZoneHeightTolerance + verticalRouteThreshold);
+            Vector2 rayOrigin = new(x, expectedY + probeHeight);
+            float rayDistance = probeHeight + walkableSurfaceProbeDistance;
+            RaycastHit2D[] hits = Physics2D.RaycastAll(rayOrigin, Vector2.down, rayDistance, walkableLayers);
+            float bestDistance = float.MaxValue;
+            surfaceY = expectedY;
+
+            foreach (RaycastHit2D hit in hits)
+            {
+                if (hit.collider == null || hit.collider.isTrigger)
+                {
+                    continue;
+                }
+
+                float distance = Mathf.Abs(hit.point.y - expectedY);
+
+                if (distance >= bestDistance)
+                {
+                    continue;
+                }
+
+                bestDistance = distance;
+                surfaceY = hit.point.y;
+            }
+
+            return bestDistance < float.MaxValue;
         }
 
         private bool IsHeightInsideClimbZone(ClimbZone2D climbZone, float y)

@@ -9,10 +9,16 @@ EditorBuildSettings:
     path: Assets/_Game/Scenes/Main.unity
     guid: f6cc915c70cf412478a4278e93ae8934
   - enabled: 1
-    path: Assets/_Game/Scenes/Old Map 1.unity
-    guid: 90a79fbecac4b314aa51646b720cbac0
+    path: Assets/_Game/Scenes/Map 1.unity
+    guid: 7df2528361efbf1439e2a778d00fac04
   - enabled: 1
-    path: Assets/_Game/Scenes/Old Map 2.unity
-    guid: eaa478f079ff98d4fabdae1a415565bf
+    path: Assets/_Game/Scenes/Map 2.unity
+    guid: af35b8bd3ca9eef449c43dadeb7cee3a
+  - enabled: 1
+    path: Assets/_Game/Scenes/Map 3.unity
+    guid: a27809422046c8040a162eaa7fa6bb07
+  - enabled: 1
+    path: Assets/_Game/Scenes/Map 4.unity
+    guid: 20edfa639bde24a41825d2fe9041c773
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
