@@ -25,7 +25,18 @@ namespace SamsamIdleOn.World
                 GetComponent<PlayerClickMovement2D>()?.Stop();
             }
 
-            transform.position = returnPortal.SpawnPosition;
+            Collider2D playerCollider = GetComponent<Collider2D>();
+            Vector2 spawnPosition = returnPortal.GetGroundedSpawnPosition(playerCollider);
+            Rigidbody2D body = GetComponent<Rigidbody2D>();
+
+            if (body != null)
+            {
+                body.position = spawnPosition;
+                body.linearVelocity = Vector2.zero;
+                body.angularVelocity = 0f;
+            }
+
+            transform.position = spawnPosition;
         }
 
         private static bool TryFindReturnPortal(int sourceBuildIndex, string sourceSceneName, out ScenePortal2D returnPortal)

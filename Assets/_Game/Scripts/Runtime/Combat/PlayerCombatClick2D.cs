@@ -55,6 +55,11 @@ namespace SamsamIdleOn.Combat
 
         public bool IsAutoCombatEnabled => autoCombatEnabled;
 
+        public bool IsAttacking => pendingTarget != null
+            && pendingTarget.IsAlive
+            && (playerHealth == null || playerHealth.IsAlive)
+            && IsInAttackRange(pendingTarget);
+
         public float GetEffectiveAverageDamage()
         {
             ResolveStats();
@@ -355,12 +360,6 @@ namespace SamsamIdleOn.Combat
                 return;
             }
 
-            if (!forceRoute && distanceToTarget <= attackRange + pursuitResumeBuffer)
-            {
-                LogCombatRouting($"Holding position near {pendingTarget.name}. distance={distanceToTarget:0.###}, attackRange={attackRange:0.###}, buffer={pursuitResumeBuffer:0.###}");
-                return;
-            }
-
             if (!forceRoute && movement.HasDestination)
             {
                 LogCombatRouting($"Waiting for active movement route before rerouting to {pendingTarget.name}. Current destination={movement.Destination}");
@@ -371,8 +370,9 @@ namespace SamsamIdleOn.Combat
             bool canRefreshRoute = Time.time >= lastRouteTime + rerouteCooldown;
             bool movedEnoughToReroute = !hasLastAttackRoutePosition
                 || Vector2.Distance(attackPosition, lastAttackRoutePosition) >= minimumRerouteDistance;
+            bool outsideResumeBuffer = distanceToTarget > attackRange + pursuitResumeBuffer;
 
-            if (forceRoute || (canRefreshRoute && movedEnoughToReroute))
+            if (forceRoute || (canRefreshRoute && (movedEnoughToReroute || outsideResumeBuffer)))
             {
                 lastRouteTime = Time.time;
                 bool routeAccepted = movement.RouteTo(attackPosition);

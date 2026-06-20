@@ -29,9 +29,14 @@ namespace SamsamIdleOn.World
         [SerializeField] private Transform arrivalPoint;
         [SerializeField] private float arrivalDistance = 0.12f;
         [SerializeField] private float arrivalHeightDistance = 0.75f;
+        [SerializeField] private float colliderArrivalDistance = 0.05f;
 
         [Header("Spawn")]
         [SerializeField] private Transform spawnPoint;
+        [SerializeField] private LayerMask spawnGroundLayers = 1 << 6;
+        [SerializeField, Min(0f)] private float spawnGroundProbeHeight = 6f;
+        [SerializeField, Min(0f)] private float spawnGroundProbeDistance = 12f;
+        [SerializeField, Min(0f)] private float spawnGroundClearance = 0.02f;
 
         [Header("Destination")]
         [SerializeField] private DestinationMode destinationMode = DestinationMode.NextScene;
@@ -39,6 +44,7 @@ namespace SamsamIdleOn.World
         [SerializeField] private bool wrapSceneIndex = false;
 
         private Collider2D portalCollider;
+        private Collider2D playerCollider;
         private bool waitingForPlayer;
 
         private Vector2 ArrivalPosition => arrivalPoint != null ? arrivalPoint.position : transform.position;
@@ -46,6 +52,19 @@ namespace SamsamIdleOn.World
         private float ArrivalY => ArrivalPosition.y;
 
         public Vector2 SpawnPosition => spawnPoint != null ? spawnPoint.position : transform.position;
+
+        public Vector2 GetGroundedSpawnPosition(Collider2D arrivingPlayerCollider)
+        {
+            Vector2 basePosition = SpawnPosition;
+            float playerBottomOffset = GetPlayerBottomOffset(arrivingPlayerCollider);
+
+            if (TryFindGroundY(basePosition, out float groundY))
+            {
+                return new Vector2(basePosition.x, groundY + playerBottomOffset + spawnGroundClearance);
+            }
+
+            return basePosition;
+        }
 
         private void Awake()
         {
@@ -59,6 +78,11 @@ namespace SamsamIdleOn.World
             if (playerMovement == null)
             {
                 playerMovement = FindAnyObjectByType<PlayerClickMovement2D>();
+            }
+
+            if (playerMovement != null)
+            {
+                playerCollider = playerMovement.GetComponent<Collider2D>();
             }
         }
 
@@ -154,6 +178,13 @@ namespace SamsamIdleOn.World
                 return;
             }
 
+            if (HasPlayerColliderArrived())
+            {
+                waitingForPlayer = false;
+                LoadDestinationScene();
+                return;
+            }
+
             if (Mathf.Abs(playerMovement.transform.position.x - ArrivalX) > arrivalDistance)
             {
                 return;
@@ -166,6 +197,61 @@ namespace SamsamIdleOn.World
 
             waitingForPlayer = false;
             LoadDestinationScene();
+        }
+
+        private bool HasPlayerColliderArrived()
+        {
+            if (portalCollider == null)
+            {
+                return false;
+            }
+
+            if (playerCollider == null && playerMovement != null)
+            {
+                playerCollider = playerMovement.GetComponent<Collider2D>();
+            }
+
+            if (playerCollider == null)
+            {
+                return false;
+            }
+
+            ColliderDistance2D distance = portalCollider.Distance(playerCollider);
+            return distance.isOverlapped || distance.distance <= colliderArrivalDistance;
+        }
+
+        private bool TryFindGroundY(Vector2 basePosition, out float groundY)
+        {
+            Vector2 rayOrigin = basePosition + Vector2.up * spawnGroundProbeHeight;
+            float rayDistance = spawnGroundProbeHeight + spawnGroundProbeDistance;
+            RaycastHit2D[] hits = Physics2D.RaycastAll(rayOrigin, Vector2.down, rayDistance, spawnGroundLayers);
+            float bestDistance = float.PositiveInfinity;
+            groundY = basePosition.y;
+            bool foundGround = false;
+
+            foreach (RaycastHit2D hit in hits)
+            {
+                if (hit.collider == null || hit.collider.isTrigger || hit.distance >= bestDistance)
+                {
+                    continue;
+                }
+
+                bestDistance = hit.distance;
+                groundY = hit.point.y;
+                foundGround = true;
+            }
+
+            return foundGround;
+        }
+
+        private static float GetPlayerBottomOffset(Collider2D arrivingPlayerCollider)
+        {
+            if (arrivingPlayerCollider == null)
+            {
+                return 0f;
+            }
+
+            return Mathf.Max(0f, arrivingPlayerCollider.transform.position.y - arrivingPlayerCollider.bounds.min.y);
         }
 
         private void LoadDestinationScene()

@@ -46,6 +46,7 @@ namespace SamsamIdleOn.Characters
 
         [Header("Presentation")]
         [SerializeField] private Transform visualRoot;
+        [SerializeField] private bool artFacesLeftByDefault = true;
         [SerializeField] private Animator animator;
         [SerializeField] private string animatorMovingParameter = "IsMoving";
         [SerializeField] private float facingDeadZone = 0.01f;
@@ -55,7 +56,7 @@ namespace SamsamIdleOn.Characters
         [SerializeField] private float stallLogInterval = 0.75f;
         [SerializeField] private float stallMoveThreshold = 0.01f;
         [SerializeField] private bool unstickHorizontalStalls = true;
-        [SerializeField] private float stallUnstickCollisionIgnoreSeconds = 0.25f;
+        [SerializeField] private float stallUnstickNudgeDistance = 0.08f;
 
         private Rigidbody2D body;
         private Collider2D bodyCollider;
@@ -70,7 +71,6 @@ namespace SamsamIdleOn.Characters
         private int suppressedPointerClickFrame = -1;
         private Vector2 lastStallCheckPosition;
         private float nextStallLogTime;
-        private float ignoreWalkableCollisionsUntilTime;
 
         public event Action<Vector2> DestinationChanged;
         public event Action ReachedDestination;
@@ -174,12 +174,28 @@ namespace SamsamIdleOn.Characters
 
             if (offset.sqrMagnitude <= stoppingDistance * stoppingDistance)
             {
-                body.MovePosition(nextDestination);
+                UpdateGravityForStep(currentStep);
+                UpdateWalkableCollisionForStep(currentStep);
+                MoveBodyForStep(currentStep, nextDestination);
                 CompleteCurrentStep();
                 return;
             }
 
-            CheckForMovementStall(currentPosition, currentStep, nextDestination);
+            if (TryRecoverMovementStall(currentPosition, currentStep, nextDestination, out Vector2 recoveredPosition))
+            {
+                currentPosition = recoveredPosition;
+                nextDestination = GetStepDestination(currentPosition, currentStep);
+                offset = nextDestination - currentPosition;
+
+                if (offset.sqrMagnitude <= stoppingDistance * stoppingDistance)
+                {
+                    UpdateGravityForStep(currentStep);
+                    UpdateWalkableCollisionForStep(currentStep);
+                    MoveBodyForStep(currentStep, nextDestination);
+                    CompleteCurrentStep();
+                    return;
+                }
+            }
 
             float speed = currentStep.Type == MovementStepType.Vertical ? climbSpeed : CurrentMoveSpeed;
             Vector2 nextPosition = Vector2.MoveTowards(
@@ -190,7 +206,7 @@ namespace SamsamIdleOn.Characters
             UpdateFacing(nextPosition.x - currentPosition.x);
             UpdateGravityForStep(currentStep);
             UpdateWalkableCollisionForStep(currentStep);
-            body.MovePosition(nextPosition);
+            MoveBodyForStep(currentStep, nextPosition);
             SetMoving(true);
         }
 
@@ -477,8 +493,7 @@ namespace SamsamIdleOn.Characters
 
             foreach (ClimbZone2D climbZone in climbZones)
             {
-                if (climbZone == null
-                    || !CanConnectPlayerHeights(climbZone, currentPosition.y, currentSurfaceY, dismountY, surfaceY))
+                if (climbZone == null)
                 {
                     continue;
                 }
@@ -506,21 +521,6 @@ namespace SamsamIdleOn.Characters
             LogMovement(
                 $"Built climb route via {bestZone.name}: current={currentPosition}, currentSurfaceY={currentSurfaceY:0.###}, target={clickedWorldPosition}, surfaceY={surfaceY:0.###}, dismountY={dismountY:0.###}");
             return true;
-        }
-
-        private bool CanConnectPlayerHeights(
-            ClimbZone2D climbZone,
-            float currentBodyY,
-            float currentSurfaceY,
-            float targetBodyY,
-            float targetSurfaceY)
-        {
-            bool canReachFromCurrentHeight = IsHeightInsideClimbZone(climbZone, currentBodyY)
-                || IsHeightInsideClimbZone(climbZone, currentSurfaceY);
-            bool canReachTargetHeight = IsHeightInsideClimbZone(climbZone, targetBodyY)
-                || IsHeightInsideClimbZone(climbZone, targetSurfaceY);
-
-            return canReachFromCurrentHeight && canReachTargetHeight;
         }
 
         private bool IsHeightInsideClimbZone(ClimbZone2D climbZone, float y)
@@ -629,8 +629,7 @@ namespace SamsamIdleOn.Characters
             }
 
             if (step.Type == MovementStepType.Vertical
-                || step.Type == MovementStepType.ClimbDismount
-                || Time.time < ignoreWalkableCollisionsUntilTime)
+                || step.Type == MovementStepType.ClimbDismount)
             {
                 IgnoreWalkableCollisions();
                 return;
@@ -682,34 +681,70 @@ namespace SamsamIdleOn.Characters
             ignoredWalkableColliders.Clear();
         }
 
-        private void CheckForMovementStall(Vector2 currentPosition, MovementStep currentStep, Vector2 nextDestination)
+        private void SetBodyPosition(Vector2 position)
         {
-            if (!logMovementDebug || Time.time < nextStallLogTime)
+            body.position = position;
+            body.linearVelocity = Vector2.zero;
+            transform.position = position;
+        }
+
+        private void MoveBodyForStep(MovementStep step, Vector2 position)
+        {
+            if (step.Type == MovementStepType.Horizontal || step.Type == MovementStepType.ClimbDismount)
             {
+                SetBodyPosition(position);
                 return;
+            }
+
+            body.MovePosition(position);
+        }
+
+        private bool TryRecoverMovementStall(Vector2 currentPosition, MovementStep currentStep, Vector2 nextDestination, out Vector2 recoveredPosition)
+        {
+            recoveredPosition = currentPosition;
+
+            if (Time.time < nextStallLogTime || (!logMovementDebug && !unstickHorizontalStalls))
+            {
+                return false;
             }
 
             float movedDistance = Vector2.Distance(currentPosition, lastStallCheckPosition);
             float remainingDistance = Vector2.Distance(currentPosition, nextDestination);
+            bool recovered = false;
 
             if (movedDistance <= stallMoveThreshold && remainingDistance > stoppingDistance)
             {
-                Debug.LogWarning(
-                    $"{nameof(PlayerClickMovement2D)} may be stalled. step={FormatStep(currentStep)}, position={currentPosition}, nextDestination={nextDestination}, destination={destination}, remaining={remainingDistance:0.###}, movedSinceLastCheck={movedDistance:0.###}, routeCount={route.Count}, gravity={body.gravityScale:0.###}, ignoredWalkableColliders={ignoredWalkableColliders.Count}, contacts={FormatContacts()}, movementEnabled={movementEnabled}",
-                    this);
+                if (logMovementDebug)
+                {
+                    Debug.LogWarning(
+                        $"{nameof(PlayerClickMovement2D)} may be stalled. step={FormatStep(currentStep)}, position={currentPosition}, nextDestination={nextDestination}, destination={destination}, remaining={remainingDistance:0.###}, movedSinceLastCheck={movedDistance:0.###}, routeCount={route.Count}, gravity={body.gravityScale:0.###}, ignoredWalkableColliders={ignoredWalkableColliders.Count}, contacts={FormatContacts()}, movementEnabled={movementEnabled}",
+                        this);
+                }
 
                 if (unstickHorizontalStalls && currentStep.Type == MovementStepType.Horizontal)
                 {
-                    ignoreWalkableCollisionsUntilTime = Time.time + Mathf.Max(0.05f, stallUnstickCollisionIgnoreSeconds);
-                    IgnoreWalkableCollisions();
-                    Debug.LogWarning(
-                        $"{nameof(PlayerClickMovement2D)} applying temporary walkable collision ignore for {stallUnstickCollisionIgnoreSeconds:0.###}s to recover horizontal stall.",
-                        this);
+                    float direction = Mathf.Sign(nextDestination.x - currentPosition.x);
+
+                    if (!Mathf.Approximately(direction, 0f))
+                    {
+                        float nudgeDistance = Mathf.Min(Mathf.Max(0.01f, stallUnstickNudgeDistance), remainingDistance);
+                        recoveredPosition = currentPosition + Vector2.right * direction * nudgeDistance;
+                        body.position = recoveredPosition;
+                        recovered = true;
+
+                        if (logMovementDebug)
+                        {
+                            Debug.LogWarning(
+                                $"{nameof(PlayerClickMovement2D)} nudged horizontally by {nudgeDistance:0.###} to recover stall.",
+                                this);
+                        }
+                    }
                 }
             }
 
-            lastStallCheckPosition = currentPosition;
+            lastStallCheckPosition = recoveredPosition;
             nextStallLogTime = Time.time + Mathf.Max(0.1f, stallLogInterval);
+            return recovered;
         }
 
         private void ResetStallWatch()
@@ -798,8 +833,9 @@ namespace SamsamIdleOn.Characters
             }
 
             float direction = horizontalDelta < 0f ? -1f : 1f;
+            float defaultFacingMultiplier = artFacesLeftByDefault ? -1f : 1f;
             visualRoot.localScale = new Vector3(
-                Mathf.Abs(visualRootBaseScale.x) * direction,
+                Mathf.Abs(visualRootBaseScale.x) * direction * defaultFacingMultiplier,
                 visualRootBaseScale.y,
                 visualRootBaseScale.z);
         }

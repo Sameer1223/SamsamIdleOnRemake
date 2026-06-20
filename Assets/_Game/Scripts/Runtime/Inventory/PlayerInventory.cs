@@ -8,6 +8,8 @@ namespace SamsamIdleOn.Inventory
     [DisallowMultipleComponent]
     public sealed class PlayerInventory : MonoBehaviour
     {
+        private const int MaxItemStack = 999;
+
         [SerializeField, Min(1)] private int slotCount = 24;
         [SerializeField, Min(1)] private int fallbackMaxStack = 999;
         [SerializeField] private GameManager gameManager;
@@ -152,14 +154,14 @@ namespace SamsamIdleOn.Inventory
             if (targetSlot == null || targetSlot.IsEmpty)
             {
                 slots[targetIndex].itemId = movedSlot.itemId;
-                slots[targetIndex].count = movedSlot.count;
+                slots[targetIndex].count = ClampStackCount(movedSlot.count);
                 CommitChanges();
                 return true;
             }
 
             displacedSlot = CopySlot(targetSlot);
             targetSlot.itemId = movedSlot.itemId;
-            targetSlot.count = movedSlot.count;
+            targetSlot.count = ClampStackCount(movedSlot.count);
             CommitChanges();
             return true;
         }
@@ -182,7 +184,7 @@ namespace SamsamIdleOn.Inventory
             if (target.IsEmpty)
             {
                 target.itemId = source.itemId;
-                target.count = source.count;
+                target.count = ClampStackCount(source.count);
                 source.Clear();
                 CommitChanges();
                 return true;
@@ -190,7 +192,7 @@ namespace SamsamIdleOn.Inventory
 
             if (target.itemId == source.itemId)
             {
-                int maxStack = fallbackMaxStack;
+                int maxStack = GetSafeMaxStack(fallbackMaxStack);
                 int availableSpace = Mathf.Max(0, maxStack - target.count);
 
                 if (availableSpace <= 0)
@@ -266,7 +268,7 @@ namespace SamsamIdleOn.Inventory
                 slots.Add(new InventorySlotData
                 {
                     itemId = savedSlot.itemId,
-                    count = savedSlot.count
+                    count = ClampStackCount(savedSlot.count)
                 });
             }
 
@@ -282,7 +284,7 @@ namespace SamsamIdleOn.Inventory
             }
 
             int remaining = count;
-            int safeMaxStack = Mathf.Max(1, maxStack);
+            int safeMaxStack = GetSafeMaxStack(maxStack);
 
             foreach (InventorySlotData slot in slots)
             {
@@ -330,7 +332,7 @@ namespace SamsamIdleOn.Inventory
             return new InventorySlotData
             {
                 itemId = slot.itemId,
-                count = slot.count
+                count = ClampStackCount(slot.count)
             };
         }
 
@@ -357,7 +359,7 @@ namespace SamsamIdleOn.Inventory
                 gameManager.SaveData.inventory.Add(new InventorySlotData
                 {
                     itemId = slot.itemId,
-                    count = slot.count
+                    count = ClampStackCount(slot.count)
                 });
             }
         }
@@ -394,6 +396,16 @@ namespace SamsamIdleOn.Inventory
         private bool IsValidSlotIndex(int index)
         {
             return index >= 0 && index < slots.Count;
+        }
+
+        private static int GetSafeMaxStack(int requestedMaxStack)
+        {
+            return Mathf.Clamp(requestedMaxStack, 1, MaxItemStack);
+        }
+
+        private static int ClampStackCount(int count)
+        {
+            return Mathf.Clamp(count, 0, MaxItemStack);
         }
     }
 }
