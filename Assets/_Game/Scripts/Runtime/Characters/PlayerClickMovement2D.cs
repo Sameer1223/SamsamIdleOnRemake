@@ -51,8 +51,7 @@ namespace SamsamIdleOn.Characters
         [SerializeField] private string animatorMovingParameter = "IsMoving";
         [SerializeField] private float facingDeadZone = 0.01f;
 
-        [Header("Debug")]
-        [SerializeField] private bool logMovementDebug = true;
+        [Header("Stall Recovery")]
         [SerializeField] private float stallLogInterval = 0.75f;
         [SerializeField] private float stallMoveThreshold = 0.01f;
         [SerializeField] private bool unstickHorizontalStalls = true;
@@ -227,7 +226,6 @@ namespace SamsamIdleOn.Characters
             hasDestination = true;
             DestinationChanged?.Invoke(destination);
             ResetStallWatch();
-            LogMovement($"MoveTo destination={destination}, clicked={worldPosition}, plane={movementPlane}");
         }
 
         public bool RouteTo(Vector2 worldPosition)
@@ -262,7 +260,6 @@ namespace SamsamIdleOn.Characters
             RestoreGravity();
             RestoreWalkableCollisions();
             SetMoving(false);
-            LogMovement("Stop called. Cleared destination and route.");
         }
 
         public void RefreshClimbZones()
@@ -292,7 +289,6 @@ namespace SamsamIdleOn.Characters
         {
             if (inputCamera == null)
             {
-                Debug.LogWarning($"{nameof(PlayerClickMovement2D)} needs an input camera.");
                 return;
             }
 
@@ -425,8 +421,6 @@ namespace SamsamIdleOn.Characters
                 destination = new Vector2(clickedWorldPosition.x, dismountY);
                 DestinationChanged?.Invoke(destination);
                 ResetStallWatch();
-                LogMovement(
-                    $"RouteTo climb destination={destination}, clicked={clickedWorldPosition}, surfaceY={surfaceY:0.###}, dismountY={dismountY:0.###}, route={FormatRoute()}");
                 return true;
             }
 
@@ -441,8 +435,6 @@ namespace SamsamIdleOn.Characters
                 Stop();
             }
 
-            LogMovement(
-                $"Route failed clicked={clickedWorldPosition}, foundSurface={foundSurface}, surfaceY={surfaceY:0.###}, dismountY={dismountY:0.###}, useCurrentLevelWhenNoSurface={useCurrentLevelWhenNoSurface}");
             return false;
         }
 
@@ -476,7 +468,6 @@ namespace SamsamIdleOn.Characters
             hasDestination = true;
             DestinationChanged?.Invoke(destination);
             ResetStallWatch();
-            LogMovement($"Rope click route destination={destination}, clicked={clickedWorldPosition}, route={FormatRoute()}");
             return true;
         }
 
@@ -532,8 +523,6 @@ namespace SamsamIdleOn.Characters
             route.Add(new MovementStep(bestZone.GetPointAtHeight(currentPosition.y), MovementStepType.Horizontal));
             route.Add(new MovementStep(bestZone.GetPointAtHeight(dismountY), MovementStepType.Vertical));
             route.Add(new MovementStep(new Vector2(clickedWorldPosition.x, dismountY), MovementStepType.ClimbDismount));
-            LogMovement(
-                $"Built climb route via {bestZone.name}: current={currentPosition}, currentSurfaceY={currentSurfaceY:0.###}, target={clickedWorldPosition}, surfaceY={surfaceY:0.###}, dismountY={dismountY:0.###}");
             return true;
         }
 
@@ -598,8 +587,6 @@ namespace SamsamIdleOn.Characters
             route.Add(new MovementStep(new Vector2(secondZone.CenterX, transferDismountY), MovementStepType.Horizontal));
             route.Add(new MovementStep(secondZone.GetPointAtHeight(targetDismountY), MovementStepType.Vertical));
             route.Add(new MovementStep(new Vector2(clickedWorldPosition.x, targetDismountY), MovementStepType.ClimbDismount));
-            LogMovement(
-                $"Built two-rope route via {firstZone.name} -> {secondZone.name}: current={currentPosition}, target={clickedWorldPosition}, transferDismountY={transferDismountY:0.###}, targetDismountY={targetDismountY:0.###}");
             return true;
         }
 
@@ -809,16 +796,11 @@ namespace SamsamIdleOn.Characters
 
         private void CompleteCurrentStep()
         {
-            MovementStep completedStep = route.Count > 0
-                ? route[0]
-                : new MovementStep(destination, movementPlane == MovementPlane.HorizontalOnly ? MovementStepType.Horizontal : MovementStepType.Free);
-
             if (route.Count > 0)
             {
                 route.RemoveAt(0);
             }
 
-            LogMovement($"Completed step {FormatStep(completedStep)}. Remaining route={FormatRoute()}");
             ResetStallWatch();
 
             if (route.Count == 0)
@@ -827,7 +809,6 @@ namespace SamsamIdleOn.Characters
                 RestoreGravity();
                 RestoreWalkableCollisions();
                 SetMoving(false);
-                LogMovement($"Reached destination {destination}.");
                 ReachedDestination?.Invoke();
             }
         }
@@ -934,7 +915,7 @@ namespace SamsamIdleOn.Characters
         {
             recoveredPosition = currentPosition;
 
-            if (Time.time < nextStallLogTime || (!logMovementDebug && !unstickHorizontalStalls))
+            if (Time.time < nextStallLogTime || !unstickHorizontalStalls)
             {
                 return false;
             }
@@ -945,13 +926,6 @@ namespace SamsamIdleOn.Characters
 
             if (movedDistance <= stallMoveThreshold && remainingDistance > stoppingDistance)
             {
-                if (logMovementDebug)
-                {
-                    Debug.LogWarning(
-                        $"{nameof(PlayerClickMovement2D)} may be stalled. step={FormatStep(currentStep)}, position={currentPosition}, nextDestination={nextDestination}, destination={destination}, remaining={remainingDistance:0.###}, movedSinceLastCheck={movedDistance:0.###}, routeCount={route.Count}, gravity={body.gravityScale:0.###}, ignoredWalkableColliders={ignoredWalkableColliders.Count}, contacts={FormatContacts()}, movementEnabled={movementEnabled}",
-                        this);
-                }
-
                 if (unstickHorizontalStalls && currentStep.Type == MovementStepType.Horizontal)
                 {
                     float direction = Mathf.Sign(nextDestination.x - currentPosition.x);
@@ -962,13 +936,6 @@ namespace SamsamIdleOn.Characters
                         recoveredPosition = currentPosition + Vector2.right * direction * nudgeDistance;
                         body.position = recoveredPosition;
                         recovered = true;
-
-                        if (logMovementDebug)
-                        {
-                            Debug.LogWarning(
-                                $"{nameof(PlayerClickMovement2D)} nudged horizontally by {nudgeDistance:0.###} to recover stall.",
-                                this);
-                        }
                     }
                 }
             }
@@ -987,68 +954,6 @@ namespace SamsamIdleOn.Characters
 
             lastStallCheckPosition = body.position;
             nextStallLogTime = Time.time + Mathf.Max(0.1f, stallLogInterval);
-        }
-
-        private void LogMovement(string message)
-        {
-            if (logMovementDebug)
-            {
-                Debug.Log($"{nameof(PlayerClickMovement2D)}: {message}", this);
-            }
-        }
-
-        private string FormatRoute()
-        {
-            if (route.Count == 0)
-            {
-                return "<empty>";
-            }
-
-            List<string> steps = new(route.Count);
-
-            foreach (MovementStep step in route)
-            {
-                steps.Add(FormatStep(step));
-            }
-
-            return string.Join(" -> ", steps);
-        }
-
-        private static string FormatStep(MovementStep step)
-        {
-            return $"{step.Type}@{step.Target}";
-        }
-
-        private string FormatContacts()
-        {
-            if (bodyCollider == null)
-            {
-                return "<no body collider>";
-            }
-
-            Collider2D[] contacts = new Collider2D[8];
-            int contactCount = bodyCollider.GetContacts(contacts);
-
-            if (contactCount <= 0)
-            {
-                return "<none>";
-            }
-
-            List<string> names = new(contactCount);
-
-            for (int i = 0; i < contactCount; i++)
-            {
-                Collider2D contact = contacts[i];
-
-                if (contact == null)
-                {
-                    continue;
-                }
-
-                names.Add($"{contact.name}(layer={LayerMask.LayerToName(contact.gameObject.layer)})");
-            }
-
-            return names.Count == 0 ? "<none>" : string.Join(", ", names);
         }
 
         private static bool IsInLayerMask(int layer, LayerMask layerMask)

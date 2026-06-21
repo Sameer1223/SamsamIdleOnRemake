@@ -34,9 +34,8 @@ namespace SamsamIdleOn.Persistence
                 saveData.EnsureDefaults();
                 return saveData;
             }
-            catch (Exception exception)
+            catch
             {
-                Debug.LogWarning($"Failed to load save file at {savePath}. Starting a new save. {exception.Message}");
                 return SaveData.CreateNew(utcNow);
             }
         }

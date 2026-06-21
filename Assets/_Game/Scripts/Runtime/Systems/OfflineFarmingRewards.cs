@@ -16,6 +16,8 @@ namespace SamsamIdleOn.Systems
 {
     public sealed class OfflineFarmingRewards : MonoBehaviour
     {
+        private static string appliedClosedTimestampThisSession = string.Empty;
+
         [Header("References")]
         [SerializeField] private GameManager gameManager;
         [SerializeField] private PlayerStats playerStats;
@@ -71,21 +73,25 @@ namespace SamsamIdleOn.Systems
             }
 
             gameManager.Initialize();
+            string closedTimestamp = gameManager.SaveData.lastClosedUtc;
+
+            if (string.IsNullOrWhiteSpace(closedTimestamp)
+                || string.Equals(appliedClosedTimestampThisSession, closedTimestamp, StringComparison.Ordinal)
+                || string.Equals(gameManager.SaveData.lastOfflineRewardsUtc, closedTimestamp, StringComparison.Ordinal))
+            {
+                MarkAppliedForSession(closedTimestamp);
+                return;
+            }
+
             SavedOfflineFarmTargetData target = gameManager.SaveData.offlineFarmTarget;
 
             if (target == null || !target.IsValid)
             {
+                MarkOfflineRewardsClaimed(closedTimestamp);
                 return;
             }
 
             target.EnsureDefaults();
-            string closedTimestamp = gameManager.SaveData.lastClosedUtc;
-
-            if (string.IsNullOrWhiteSpace(closedTimestamp)
-                || string.Equals(gameManager.SaveData.lastOfflineRewardsUtc, closedTimestamp, StringComparison.Ordinal))
-            {
-                return;
-            }
 
             float offlineSeconds = (float)gameManager.OfflineDuration.TotalSeconds;
 
@@ -96,9 +102,7 @@ namespace SamsamIdleOn.Systems
 
             if (offlineSeconds < minimumOfflineSeconds)
             {
-                gameManager.SaveData.lastOfflineRewardsUtc = closedTimestamp;
-                gameManager.SaveProgress();
-                hasApplied = true;
+                MarkOfflineRewardsClaimed(closedTimestamp);
                 return;
             }
 
@@ -106,9 +110,7 @@ namespace SamsamIdleOn.Systems
 
             if (result.Actions <= 0)
             {
-                gameManager.SaveData.lastOfflineRewardsUtc = closedTimestamp;
-                gameManager.SaveProgress();
-                hasApplied = true;
+                MarkOfflineRewardsClaimed(closedTimestamp);
                 return;
             }
 
@@ -127,10 +129,31 @@ namespace SamsamIdleOn.Systems
                 inventory?.AddItem(itemId, count);
             }
 
+            MarkOfflineRewardsClaimed(closedTimestamp);
+            ShowMessage(BuildMessage(target, offlineSeconds, result));
+        }
+
+        private void MarkOfflineRewardsClaimed(string closedTimestamp)
+        {
+            if (string.IsNullOrWhiteSpace(closedTimestamp))
+            {
+                hasApplied = true;
+                return;
+            }
+
             gameManager.SaveData.lastOfflineRewardsUtc = closedTimestamp;
             gameManager.SaveProgress();
+            MarkAppliedForSession(closedTimestamp);
+        }
+
+        private void MarkAppliedForSession(string closedTimestamp)
+        {
+            if (!string.IsNullOrWhiteSpace(closedTimestamp))
+            {
+                appliedClosedTimestampThisSession = closedTimestamp;
+            }
+
             hasApplied = true;
-            ShowMessage(BuildMessage(target, offlineSeconds, result));
         }
 
         private OfflineRewardResult CalculateRewards(SavedOfflineFarmTargetData target, float offlineSeconds)
@@ -250,7 +273,6 @@ namespace SamsamIdleOn.Systems
         {
             if (messageLabel == null)
             {
-                Debug.Log(message, this);
                 return;
             }
 

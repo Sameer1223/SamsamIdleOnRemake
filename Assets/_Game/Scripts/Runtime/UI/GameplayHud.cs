@@ -116,7 +116,6 @@ namespace SamsamIdleOn.UI
 
         public void OpenCodex()
         {
-            Debug.Log("Codex button clicked.", this);
         }
 
         public void ToggleAttacksPanel()

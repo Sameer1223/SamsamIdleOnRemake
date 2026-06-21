@@ -48,9 +48,6 @@ namespace SamsamIdleOn.Combat
         [SerializeField] private Color powerStrikeTextColor = new(0.45f, 0.85f, 1f, 1f);
         [SerializeField] private Color powerStrikeDamageTextColor = new(0.35f, 1f, 0.95f, 1f);
 
-        [Header("Debug")]
-        [SerializeField] private bool logCombatRoutingDebug = true;
-
         [Header("Auto Combat")]
         [SerializeField] private bool autoCombatEnabled;
         [SerializeField, Min(0f)] private float autoTargetRefreshSeconds = 0.25f;
@@ -367,7 +364,6 @@ namespace SamsamIdleOn.Combat
             {
                 if (movement.HasDestination)
                 {
-                    LogCombatRouting($"Target {pendingTarget.DisplayName} is in range. Stopping active movement route before attacking.");
                     movement.Stop();
                 }
 
@@ -382,7 +378,6 @@ namespace SamsamIdleOn.Combat
 
             if (!forceRoute && movement.HasDestination)
             {
-                LogCombatRouting($"Waiting for active movement route before rerouting to {pendingTarget.DisplayName}. Current destination={movement.Destination}");
                 return;
             }
 
@@ -398,7 +393,6 @@ namespace SamsamIdleOn.Combat
                 bool routeAccepted = movement.RouteTo(attackPosition);
                 lastAttackRoutePosition = attackPosition;
                 hasLastAttackRoutePosition = routeAccepted;
-                LogCombatRouting($"RouteTo attack target={pendingTarget.DisplayName}, attackPosition={attackPosition}, accepted={routeAccepted}, forceRoute={forceRoute}");
             }
         }
 
@@ -412,7 +406,6 @@ namespace SamsamIdleOn.Combat
             if (!CanActivatePowerStrike())
             {
                 ShowPowerStrikeStatusText(GetPowerStrikeFailureText());
-                Debug.Log("Power Strike failed: not enough MP or still on cooldown.", this);
                 return false;
             }
 
@@ -420,7 +413,6 @@ namespace SamsamIdleOn.Combat
             nextPowerStrikeTime = Time.time + powerStrikeCooldownSeconds;
             powerStrikeArmed = true;
             ShowPowerStrikeStatusText("2x Ready");
-            Debug.Log($"Power Strike armed. Next hit deals {powerStrikeDamageMultiplier:0.#}x damage.", this);
             return true;
         }
 
@@ -609,7 +601,6 @@ namespace SamsamIdleOn.Combat
             if (TryRollDodge(target))
             {
                 ShowMissText(target);
-                Debug.Log($"Player missed {target.DisplayName}.", target.TargetComponent);
                 nextAttackTime = Time.time + (1f / GetEffectiveAttacksPerSecond());
                 return;
             }
@@ -618,21 +609,12 @@ namespace SamsamIdleOn.Combat
             int damage = RollDamage(out bool didCrit);
             target.ApplyHit(damage, gameObject);
             ShowDamageText(target, damage, didCrit, usedPowerStrike);
-            Debug.Log($"Player hit {target.DisplayName} for {damage}{(didCrit ? " CRIT" : string.Empty)}{(usedPowerStrike ? " POWER STRIKE" : string.Empty)}.", target.TargetComponent);
             powerStrikeArmed = false;
             nextAttackTime = Time.time + (1f / GetEffectiveAttacksPerSecond());
 
             if (!target.IsTargetable)
             {
                 pendingTarget = null;
-            }
-        }
-
-        private void LogCombatRouting(string message)
-        {
-            if (logCombatRoutingDebug)
-            {
-                Debug.Log($"{nameof(PlayerCombatClick2D)}: {message}", this);
             }
         }
 

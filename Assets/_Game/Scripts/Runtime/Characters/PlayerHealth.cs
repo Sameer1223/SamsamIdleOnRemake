@@ -139,7 +139,6 @@ namespace SamsamIdleOn.Characters
         {
             if (!Application.isPlaying)
             {
-                Debug.LogWarning($"{nameof(PlayerHealth)} test death only runs in Play Mode.", this);
                 return;
             }
 

@@ -69,7 +69,6 @@ namespace SamsamIdleOn.Enemies
         {
             if (enemyPrefab == null)
             {
-                Debug.LogWarning($"{nameof(EnemySpawner2D)} on {name} cannot spawn because no enemy prefab is assigned.", this);
                 return;
             }
 
@@ -78,22 +77,12 @@ namespace SamsamIdleOn.Enemies
                 return;
             }
 
-            int spawnedCount = 0;
-
             for (int i = 0; i < count; i++)
             {
                 if (TryFindSpawnPoint(out Vector2 spawnPoint))
                 {
                     SpawnEnemy(spawnPoint);
-                    spawnedCount++;
                 }
-            }
-
-            if (spawnedCount == 0)
-            {
-                Debug.LogWarning(
-                    $"{nameof(EnemySpawner2D)} on {name} found no ground spawn points. Check groundLayers and spawnArea.",
-                    this);
             }
         }
 

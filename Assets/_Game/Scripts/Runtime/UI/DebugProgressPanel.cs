@@ -26,7 +26,7 @@ namespace SamsamIdleOn.UI
         {
             if (gameManager == null)
             {
-                gameManager = FindFirstObjectByType<GameManager>();
+                gameManager = FindAnyObjectByType<GameManager>();
             }
         }
 
