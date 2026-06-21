@@ -16,8 +16,8 @@ MonoBehaviour:
   displayName: Crit %
   description: 
   stat: 9
-  statBonusPerLevel: 0.1
-  effectKind: 2
+  statBonusPerLevel: 0.05
+  effectKind: 1
   baseCostBronze: 50
   costGrowthMultiplier: 1.25
   maxLevel: 20

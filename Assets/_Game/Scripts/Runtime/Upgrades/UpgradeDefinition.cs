@@ -324,6 +324,7 @@ namespace SamsamIdleOn.Upgrades
             return stat switch
             {
                 CharacterStatType.MoveSpeed => StatModifierKind.AdditivePercent,
+                CharacterStatType.AttackSpeed => StatModifierKind.AdditivePercent,
                 _ => StatModifierKind.Flat
             };
         }
@@ -342,6 +343,7 @@ namespace SamsamIdleOn.Upgrades
         {
             return stat == CharacterStatType.XpGain
                 || stat == CharacterStatType.CoinGain
+                || stat == CharacterStatType.AttackSpeed
                 || stat == CharacterStatType.CritChance
                 || stat == CharacterStatType.Luck;
         }
@@ -354,6 +356,7 @@ namespace SamsamIdleOn.Upgrades
                 CharacterStatType.HealthRegen => "HP Regen",
                 CharacterStatType.MaxMana => "Mana",
                 CharacterStatType.ManaRegen => "MP Regen",
+                CharacterStatType.AttackSpeed => "Atk Spd",
                 CharacterStatType.MoveSpeed => "Move Speed",
                 CharacterStatType.CritChance => "Crit Chance",
                 CharacterStatType.CritDamage => "Crit Damage",

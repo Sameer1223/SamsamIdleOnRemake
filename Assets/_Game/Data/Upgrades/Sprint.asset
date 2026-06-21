@@ -19,5 +19,5 @@ MonoBehaviour:
   statBonusPerLevel: 0.1
   effectKind: 2
   baseCostBronze: 25
-  costGrowthMultiplier: 1.25
+  costGrowthMultiplier: 1.13
   maxLevel: 50

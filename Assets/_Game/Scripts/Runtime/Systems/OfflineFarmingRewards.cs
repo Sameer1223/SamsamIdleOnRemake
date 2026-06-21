@@ -4,11 +4,13 @@ using System.Collections.Generic;
 using System.Text;
 using SamsamIdleOn.Combat;
 using SamsamIdleOn.Core;
+using SamsamIdleOn.Data;
 using SamsamIdleOn.Inventory;
 using SamsamIdleOn.Persistence;
 using SamsamIdleOn.Stats;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace SamsamIdleOn.Systems
 {
@@ -19,19 +21,33 @@ namespace SamsamIdleOn.Systems
         [SerializeField] private PlayerStats playerStats;
         [SerializeField] private PlayerCombatClick2D playerCombat;
         [SerializeField] private PlayerInventory inventory;
+        [SerializeField] private GameDataRegistry dataRegistry;
         [SerializeField] private TMP_Text messageLabel;
+        [SerializeField] private GameObject messagePanel;
 
         [Header("Offline Farming")]
         [SerializeField] private bool applyOnStart = true;
         [SerializeField, Min(0f)] private float minimumOfflineSeconds = 10f;
         [SerializeField, Min(0f)] private float maxOfflineHours = 8f;
-        [SerializeField, Min(0.01f)] private float minimumSecondsPerKill = 0.25f;
-        [SerializeField, Min(0f)] private float secondsBetweenTargets = 1.5f;
+        [SerializeField, Range(0f, 1f)] private float enemyOfflineEfficiency = 0.45f;
+        [SerializeField, Min(0.01f)] private float minimumSecondsPerKill = 1.5f;
+        [SerializeField, Min(0f)] private float secondsBetweenTargets = 2f;
+        [SerializeField, Min(1f)] private float maxAfkGainMultiplier = 2f;
+
+        [Header("Offline Mining")]
+        [SerializeField, Min(0.01f)] private float minimumSecondsPerMiningAction = 0.2f;
+        [SerializeField, Range(0f, 1f)] private float miningOfflineEfficiency = 0.55f;
+        [SerializeField, Min(0f)] private float miningSpeedPerStrength = 0.01f;
+        [SerializeField, Min(0f)] private float miningYieldPerStrength = 0.02f;
 
         [Header("Message")]
         [SerializeField, Min(0f)] private float messageSeconds = 5f;
+        [SerializeField] private bool createMessagePanelIfMissing = true;
+        [SerializeField] private Color messagePanelColor = new(0f, 0f, 0f, 0.72f);
+        [SerializeField] private Vector2 messagePanelPadding = new(32f, 24f);
 
         private Coroutine messageRoutine;
+        private GameObject generatedMessagePanel;
         private bool hasApplied;
 
         private void Start()
@@ -88,7 +104,7 @@ namespace SamsamIdleOn.Systems
 
             OfflineRewardResult result = CalculateRewards(target, offlineSeconds);
 
-            if (result.Kills <= 0)
+            if (result.Actions <= 0)
             {
                 gameManager.SaveData.lastOfflineRewardsUtc = closedTimestamp;
                 gameManager.SaveProgress();
@@ -96,8 +112,15 @@ namespace SamsamIdleOn.Systems
                 return;
             }
 
-            gameManager.AddExperience(result.Experience);
-            gameManager.AddBronzeCoins(result.BronzeCoins);
+            if (result.Experience > 0)
+            {
+                gameManager.AddExperience(result.Experience);
+            }
+
+            if (result.BronzeCoins > 0)
+            {
+                gameManager.AddBronzeCoins(result.BronzeCoins);
+            }
 
             foreach ((string itemId, int count) in result.ItemRewards)
             {
@@ -107,10 +130,17 @@ namespace SamsamIdleOn.Systems
             gameManager.SaveData.lastOfflineRewardsUtc = closedTimestamp;
             gameManager.SaveProgress();
             hasApplied = true;
-            ShowMessage(BuildMessage(target.displayName, offlineSeconds, result));
+            ShowMessage(BuildMessage(target, offlineSeconds, result));
         }
 
         private OfflineRewardResult CalculateRewards(SavedOfflineFarmTargetData target, float offlineSeconds)
+        {
+            return target.IsMining
+                ? CalculateMiningRewards(target, offlineSeconds)
+                : CalculateEnemyRewards(target, offlineSeconds);
+        }
+
+        private OfflineRewardResult CalculateEnemyRewards(SavedOfflineFarmTargetData target, float offlineSeconds)
         {
             float strength = GetStat(CharacterStatType.Strength);
             float xpGain = GetStat(CharacterStatType.XpGain);
@@ -124,9 +154,13 @@ namespace SamsamIdleOn.Systems
             float attacksPerSecond = playerCombat != null
                 ? playerCombat.GetEffectiveAttacksPerSecond()
                 : 1f;
-            float dps = averageDamage * attacksPerSecond;
-            float secondsPerKill = Mathf.Max(minimumSecondsPerKill, target.enemyHealth / dps + secondsBetweenTargets);
-            int kills = Mathf.FloorToInt(offlineSeconds / secondsPerKill * (1f + afkGain));
+            int attacksPerKill = Mathf.Max(1, Mathf.CeilToInt(Mathf.Max(1, target.enemyHealth) / Mathf.Max(1f, averageDamage)));
+            float combatSeconds = attacksPerKill / Mathf.Max(0.01f, attacksPerSecond);
+            float secondsPerKill = Mathf.Max(minimumSecondsPerKill, combatSeconds + secondsBetweenTargets);
+            float effectiveOfflineSeconds = offlineSeconds
+                * Mathf.Clamp01(enemyOfflineEfficiency)
+                * GetAfkGainMultiplier(afkGain);
+            int kills = Mathf.FloorToInt(effectiveOfflineSeconds / secondsPerKill);
 
             float averageExperienceReward = (Mathf.Max(0, target.minExperienceReward) + Mathf.Max(target.minExperienceReward, target.maxExperienceReward)) * 0.5f;
             float averageCoinReward = (Mathf.Max(0, target.minCoinBronzeReward) + Mathf.Max(target.minCoinBronzeReward, target.maxCoinBronzeReward)) * 0.5f;
@@ -159,9 +193,57 @@ namespace SamsamIdleOn.Systems
             return new OfflineRewardResult(kills, experience, bronzeCoins, itemRewards);
         }
 
+        private OfflineRewardResult CalculateMiningRewards(SavedOfflineFarmTargetData target, float offlineSeconds)
+        {
+            float strength = GetStat(CharacterStatType.Strength);
+            float attackSpeed = GetStat(CharacterStatType.AttackSpeed);
+            float luck = GetStat(CharacterStatType.Luck);
+            float afkGain = GetStat(CharacterStatType.AfkGain);
+            float baseSecondsPerAction = target.secondsPerAction > 0f
+                ? target.secondsPerAction
+                : 1f;
+            float speedMultiplier = Mathf.Max(0.01f, attackSpeed)
+                + Mathf.Max(0f, strength) * miningSpeedPerStrength;
+            float secondsPerAction = Mathf.Max(minimumSecondsPerMiningAction, baseSecondsPerAction / Mathf.Max(0.01f, speedMultiplier));
+            float effectiveOfflineSeconds = offlineSeconds
+                * Mathf.Clamp01(miningOfflineEfficiency)
+                * GetAfkGainMultiplier(afkGain);
+            int actions = Mathf.FloorToInt(effectiveOfflineSeconds / secondsPerAction);
+            Dictionary<string, int> itemRewards = new();
+
+            foreach (SavedOfflineDropData drop in target.drops)
+            {
+                if (drop == null || string.IsNullOrWhiteSpace(drop.itemId))
+                {
+                    continue;
+                }
+
+                int minCount = Mathf.Max(1, drop.minCount);
+                int maxCount = Mathf.Max(minCount, drop.maxCount);
+                float averageCount = (minCount + maxCount) * 0.5f;
+                float chance = Mathf.Clamp01(drop.dropChance + luck);
+                int count = Mathf.FloorToInt(actions * chance * averageCount * (1f + Mathf.Max(0f, strength) * miningYieldPerStrength));
+
+                if (count <= 0)
+                {
+                    continue;
+                }
+
+                itemRewards.TryGetValue(drop.itemId, out int currentCount);
+                itemRewards[drop.itemId] = currentCount + count;
+            }
+
+            return new OfflineRewardResult(actions, 0, 0, itemRewards);
+        }
+
         private float GetStat(CharacterStatType stat)
         {
             return playerStats != null ? playerStats.GetValue(stat) : 0f;
+        }
+
+        private float GetAfkGainMultiplier(float afkGain)
+        {
+            return Mathf.Clamp(1f + Mathf.Max(0f, afkGain), 1f, maxAfkGainMultiplier);
         }
 
         private void ShowMessage(string message)
@@ -177,38 +259,134 @@ namespace SamsamIdleOn.Systems
                 StopCoroutine(messageRoutine);
             }
 
+            EnsureMessagePanel();
+            SetMessageVisible(true);
             messageRoutine = StartCoroutine(ShowMessageRoutine(message));
         }
 
         private IEnumerator ShowMessageRoutine(string message)
         {
-            messageLabel.gameObject.SetActive(true);
             messageLabel.text = message;
+            ResizeGeneratedMessagePanel();
 
             if (messageSeconds > 0f)
             {
                 yield return new WaitForSeconds(messageSeconds);
                 messageLabel.text = string.Empty;
-                messageLabel.gameObject.SetActive(false);
+                SetMessageVisible(false);
             }
 
             messageRoutine = null;
         }
 
-        private static string BuildMessage(string enemyName, float offlineSeconds, OfflineRewardResult result)
+        private void EnsureMessagePanel()
+        {
+            if (messagePanel != null || !createMessagePanelIfMissing || messageLabel == null)
+            {
+                return;
+            }
+
+            RectTransform labelRectTransform = messageLabel.rectTransform;
+
+            if (labelRectTransform == null || labelRectTransform.parent == null)
+            {
+                return;
+            }
+
+            generatedMessagePanel = new GameObject("Offline Gains Panel");
+            generatedMessagePanel.transform.SetParent(labelRectTransform.parent, false);
+            generatedMessagePanel.transform.SetSiblingIndex(labelRectTransform.GetSiblingIndex());
+
+            Image panelImage = generatedMessagePanel.AddComponent<Image>();
+            panelImage.color = messagePanelColor;
+            panelImage.raycastTarget = false;
+
+            RectTransform panelRectTransform = generatedMessagePanel.GetComponent<RectTransform>();
+            panelRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRectTransform.pivot = new Vector2(0.5f, 0.5f);
+            panelRectTransform.sizeDelta = labelRectTransform.sizeDelta + messagePanelPadding;
+
+            messagePanel = generatedMessagePanel;
+            messagePanel.SetActive(false);
+        }
+
+        private void ResizeGeneratedMessagePanel()
+        {
+            if (generatedMessagePanel == null || messageLabel == null)
+            {
+                return;
+            }
+
+            messageLabel.ForceMeshUpdate();
+            Vector2 preferredSize = messageLabel.GetPreferredValues(messageLabel.text);
+            RectTransform panelRectTransform = generatedMessagePanel.GetComponent<RectTransform>();
+            Bounds textBounds = messageLabel.textBounds;
+
+            panelRectTransform.sizeDelta = new Vector2(
+                Mathf.Max(messageLabel.rectTransform.sizeDelta.x, preferredSize.x) + messagePanelPadding.x,
+                Mathf.Max(messageLabel.rectTransform.sizeDelta.y, preferredSize.y) + messagePanelPadding.y);
+
+            if (textBounds.size.sqrMagnitude > 0f)
+            {
+                panelRectTransform.position = messageLabel.transform.TransformPoint(textBounds.center);
+            }
+            else
+            {
+                panelRectTransform.position = messageLabel.rectTransform.position;
+            }
+        }
+
+        private void SetMessageVisible(bool isVisible)
+        {
+            if (messagePanel != null)
+            {
+                messagePanel.SetActive(isVisible);
+            }
+
+            if (messageLabel != null)
+            {
+                messageLabel.gameObject.SetActive(isVisible);
+            }
+        }
+
+        private string BuildMessage(SavedOfflineFarmTargetData target, float offlineSeconds, OfflineRewardResult result)
         {
             StringBuilder builder = new();
             builder.AppendLine($"AFK gains from {FormatDuration(offlineSeconds)} away");
-            builder.AppendLine($"{result.Kills} {enemyName} defeated");
-            builder.AppendLine($"+{result.Experience} XP");
-            builder.AppendLine($"+{FormatCoins(result.BronzeCoins)}");
+
+            if (target.IsMining)
+            {
+                builder.AppendLine($"{result.Actions} {target.displayName} mining actions");
+            }
+            else
+            {
+                builder.AppendLine($"{result.Actions} {target.displayName} defeated");
+                builder.AppendLine($"+{result.Experience} XP");
+                builder.AppendLine($"+{FormatCoins(result.BronzeCoins)}");
+            }
 
             foreach ((string itemId, int count) in result.ItemRewards)
             {
-                builder.AppendLine($"+{count} {itemId}");
+                builder.AppendLine($"+{count} {ResolveItemDisplayName(itemId)}");
             }
 
             return builder.ToString().TrimEnd();
+        }
+
+        private string ResolveItemDisplayName(string itemId)
+        {
+            if (string.IsNullOrWhiteSpace(itemId))
+            {
+                return string.Empty;
+            }
+
+            if (dataRegistry != null && dataRegistry.TryGetDefinition(itemId, out ItemDefinition definition))
+            {
+                return definition.DisplayName;
+            }
+
+            return itemId;
         }
 
         private static string FormatDuration(float seconds)
@@ -270,19 +448,24 @@ namespace SamsamIdleOn.Systems
             {
                 inventory = FindAnyObjectByType<PlayerInventory>();
             }
+
+            if (dataRegistry == null)
+            {
+                dataRegistry = FindAnyObjectByType<GameDataRegistry>();
+            }
         }
 
         private readonly struct OfflineRewardResult
         {
-            public OfflineRewardResult(int kills, long experience, long bronzeCoins, Dictionary<string, int> itemRewards)
+            public OfflineRewardResult(int actions, long experience, long bronzeCoins, Dictionary<string, int> itemRewards)
             {
-                Kills = kills;
+                Actions = actions;
                 Experience = experience;
                 BronzeCoins = bronzeCoins;
                 ItemRewards = itemRewards;
             }
 
-            public int Kills { get; }
+            public int Actions { get; }
 
             public long Experience { get; }
 

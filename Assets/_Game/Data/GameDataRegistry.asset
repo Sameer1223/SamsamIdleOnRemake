@@ -14,5 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Data.GameDataRegistry
   definitions:
   - {fileID: 11400000, guid: 8a2b4b419a4149c4afc4011b7bb84bb2, type: 2}
+  - {fileID: 11400000, guid: dea472cba8c772146aa60aa0a0ea3625, type: 2}
+  - {fileID: 11400000, guid: 4ca180c4ddfb29d43a96904f4141626e, type: 2}
+  - {fileID: 11400000, guid: 6e5b80d314cd6fd4d9ea624bd1bcc6f0, type: 2}
   - {fileID: 11400000, guid: 82f3968c0b28245439731ed4dd303618, type: 2}
   - {fileID: 11400000, guid: 6fbf8ed5e801dfb4c9915365bf912b30, type: 2}
+  - {fileID: 11400000, guid: 43f692c60ea8a7041a8107a21d6883cb, type: 2}
+  - {fileID: 11400000, guid: 27c8ea2052844274e824bb622002ef6f, type: 2}

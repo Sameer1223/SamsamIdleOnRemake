@@ -1,5 +1,7 @@
+using System;
 using SamsamIdleOn.Characters;
 using SamsamIdleOn.Core;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -19,6 +21,13 @@ namespace SamsamIdleOn.World
             SceneName
         }
 
+        public enum UnlockRequirementKind
+        {
+            Open,
+            PlayerLevel,
+            EnemyKills
+        }
+
         [Header("Input")]
         [SerializeField] private Camera inputCamera;
         [SerializeField] private bool ignoreClicksOverUi = true;
@@ -34,7 +43,6 @@ namespace SamsamIdleOn.World
         [Header("Spawn")]
         [SerializeField] private Transform spawnPoint;
         [SerializeField] private LayerMask spawnGroundLayers = 1 << 6;
-        [SerializeField, Min(0f)] private float spawnGroundProbeHeight = 6f;
         [SerializeField, Min(0f)] private float spawnGroundProbeDistance = 12f;
         [SerializeField, Min(0f)] private float spawnGroundClearance = 0.02f;
 
@@ -43,8 +51,20 @@ namespace SamsamIdleOn.World
         [SerializeField] private string sceneName;
         [SerializeField] private bool wrapSceneIndex = false;
 
+        [Header("Unlock")]
+        [SerializeField] private UnlockRequirementKind unlockRequirement = UnlockRequirementKind.Open;
+        [SerializeField, Min(1)] private int requiredPlayerLevel = 1;
+        [SerializeField] private string requiredEnemyId;
+        [SerializeField, Min(1)] private int requiredEnemyKills = 1;
+        [SerializeField] private TMP_Text requirementLabel;
+        [SerializeField] private string openLabelText = string.Empty;
+        [SerializeField] private Color lockedTint = new(0.45f, 0.45f, 0.45f, 1f);
+        [SerializeField] private SpriteRenderer[] tintRenderers;
+
         private Collider2D portalCollider;
         private Collider2D playerCollider;
+        private GameManager gameManager;
+        private Color[] originalRendererColors = Array.Empty<Color>();
         private bool waitingForPlayer;
 
         private Vector2 ArrivalPosition => arrivalPoint != null ? arrivalPoint.position : transform.position;
@@ -84,6 +104,10 @@ namespace SamsamIdleOn.World
             {
                 playerCollider = playerMovement.GetComponent<Collider2D>();
             }
+
+            ResolveGameManager();
+            CacheRendererColors();
+            RefreshLockState();
         }
 
         private void OnEnable()
@@ -92,6 +116,16 @@ namespace SamsamIdleOn.World
             {
                 playerMovement.ReachedDestination += HandlePlayerReachedDestination;
             }
+
+            ResolveGameManager();
+
+            if (gameManager != null)
+            {
+                gameManager.StateChanged -= RefreshLockState;
+                gameManager.StateChanged += RefreshLockState;
+            }
+
+            RefreshLockState();
         }
 
         private void OnDisable()
@@ -99,6 +133,11 @@ namespace SamsamIdleOn.World
             if (playerMovement != null)
             {
                 playerMovement.ReachedDestination -= HandlePlayerReachedDestination;
+            }
+
+            if (gameManager != null)
+            {
+                gameManager.StateChanged -= RefreshLockState;
             }
         }
 
@@ -128,6 +167,15 @@ namespace SamsamIdleOn.World
 
             if (!portalCollider.OverlapPoint(worldPosition))
             {
+                return;
+            }
+
+            RefreshLockState();
+
+            if (!IsUnlocked())
+            {
+                waitingForPlayer = false;
+                playerMovement.SuppressCurrentPointerClick();
                 return;
             }
 
@@ -178,6 +226,12 @@ namespace SamsamIdleOn.World
                 return;
             }
 
+            if (!IsUnlocked())
+            {
+                waitingForPlayer = false;
+                return;
+            }
+
             if (HasPlayerColliderArrived())
             {
                 waitingForPlayer = false;
@@ -222,8 +276,9 @@ namespace SamsamIdleOn.World
 
         private bool TryFindGroundY(Vector2 basePosition, out float groundY)
         {
-            Vector2 rayOrigin = basePosition + Vector2.up * spawnGroundProbeHeight;
-            float rayDistance = spawnGroundProbeHeight + spawnGroundProbeDistance;
+            const float skin = 0.05f;
+            Vector2 rayOrigin = basePosition + Vector2.up * skin;
+            float rayDistance = spawnGroundProbeDistance + skin;
             RaycastHit2D[] hits = Physics2D.RaycastAll(rayOrigin, Vector2.down, rayDistance, spawnGroundLayers);
             float bestDistance = float.PositiveInfinity;
             groundY = basePosition.y;
@@ -231,7 +286,10 @@ namespace SamsamIdleOn.World
 
             foreach (RaycastHit2D hit in hits)
             {
-                if (hit.collider == null || hit.collider.isTrigger || hit.distance >= bestDistance)
+                if (hit.collider == null
+                    || hit.collider.isTrigger
+                    || hit.point.y > basePosition.y + skin
+                    || hit.distance >= bestDistance)
                 {
                     continue;
                 }
@@ -256,6 +314,12 @@ namespace SamsamIdleOn.World
 
         private void LoadDestinationScene()
         {
+            if (!IsUnlocked())
+            {
+                waitingForPlayer = false;
+                return;
+            }
+
             Scene activeScene = SceneManager.GetActiveScene();
             SceneTransitionState.SetPendingSourceScene(activeScene.buildIndex, activeScene.name);
             GameManager.Instance?.SaveProgress(false);
@@ -336,6 +400,123 @@ namespace SamsamIdleOn.World
 
             destinationBuildIndex = targetIndex;
             return true;
+        }
+
+        private bool IsUnlocked()
+        {
+            ResolveGameManager();
+
+            if (unlockRequirement == UnlockRequirementKind.Open)
+            {
+                return true;
+            }
+
+            if (gameManager == null || gameManager.SaveData == null)
+            {
+                return false;
+            }
+
+            return unlockRequirement switch
+            {
+                UnlockRequirementKind.PlayerLevel => gameManager.PlayerLevel >= requiredPlayerLevel,
+                UnlockRequirementKind.EnemyKills => gameManager.GetEnemyKillCount(requiredEnemyId) >= requiredEnemyKills,
+                _ => true
+            };
+        }
+
+        private void RefreshLockState()
+        {
+            bool isUnlocked = IsUnlocked();
+            RefreshRequirementLabel(isUnlocked);
+            RefreshRendererTint(isUnlocked);
+        }
+
+        private void RefreshRequirementLabel(bool isUnlocked)
+        {
+            if (requirementLabel == null)
+            {
+                return;
+            }
+
+            string text = isUnlocked ? openLabelText : GetRequirementText();
+            requirementLabel.text = text;
+            requirementLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(text));
+        }
+
+        private string GetRequirementText()
+        {
+            ResolveGameManager();
+
+            return unlockRequirement switch
+            {
+                UnlockRequirementKind.PlayerLevel =>
+                    $"Requires Level {requiredPlayerLevel}",
+                UnlockRequirementKind.EnemyKills =>
+                    $"Defeat {Mathf.Min(GetCurrentRequiredEnemyKills(), requiredEnemyKills)}/{requiredEnemyKills} {GetRequiredEnemyDisplayName()}",
+                _ => string.Empty
+            };
+        }
+
+        private int GetCurrentRequiredEnemyKills()
+        {
+            return gameManager != null ? gameManager.GetEnemyKillCount(requiredEnemyId) : 0;
+        }
+
+        private string GetRequiredEnemyDisplayName()
+        {
+            return string.IsNullOrWhiteSpace(requiredEnemyId) ? "enemies" : requiredEnemyId.Trim();
+        }
+
+        private void RefreshRendererTint(bool isUnlocked)
+        {
+            if (tintRenderers == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < tintRenderers.Length; i++)
+            {
+                SpriteRenderer spriteRenderer = tintRenderers[i];
+
+                if (spriteRenderer == null)
+                {
+                    continue;
+                }
+
+                Color unlockedColor = originalRendererColors != null && i < originalRendererColors.Length
+                    ? originalRendererColors[i]
+                    : Color.white;
+                spriteRenderer.color = isUnlocked ? unlockedColor : lockedTint;
+            }
+        }
+
+        private void CacheRendererColors()
+        {
+            if (tintRenderers == null || tintRenderers.Length == 0)
+            {
+                tintRenderers = GetComponentsInChildren<SpriteRenderer>();
+            }
+
+            originalRendererColors = new Color[tintRenderers?.Length ?? 0];
+
+            for (int i = 0; i < originalRendererColors.Length; i++)
+            {
+                originalRendererColors[i] = tintRenderers[i] != null ? tintRenderers[i].color : Color.white;
+            }
+        }
+
+        private void ResolveGameManager()
+        {
+            if (GameManager.Instance != null)
+            {
+                gameManager = GameManager.Instance;
+            }
+            else if (gameManager == null)
+            {
+                gameManager = FindAnyObjectByType<GameManager>();
+            }
+
+            gameManager?.Initialize();
         }
     }
 }

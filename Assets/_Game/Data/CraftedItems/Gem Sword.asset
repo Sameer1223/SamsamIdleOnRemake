@@ -14,12 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Inventory.ItemDefinition
   id: gem_sword
   displayName: Gem Sword
-  icon: {fileID: 7388219100256230374, guid: 0fcd557f68eb9f14fa06a437d18b8f33, type: 3}
+  icon: {fileID: 688149017, guid: a503c13825187bf4a8ef134309a7414b, type: 3}
   maxStack: 1
   description: 
   statBonuses:
   - stat: 4
-    value: 10
+    value: 20
     kind: 0
     applyPerStack: 0
   - stat: 5
@@ -27,6 +27,6 @@ MonoBehaviour:
     kind: 1
     applyPerStack: 0
   - stat: 9
-    value: 0.3
+    value: 0.4
     kind: 1
     applyPerStack: 0

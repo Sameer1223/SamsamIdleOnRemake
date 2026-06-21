@@ -7,7 +7,7 @@ namespace SamsamIdleOn.Stats
         MaxMana,
         ManaRegen,
         Strength,
-        Agility,
+        AttackSpeed,
         Luck,
         Accuracy,
         MoveSpeed,

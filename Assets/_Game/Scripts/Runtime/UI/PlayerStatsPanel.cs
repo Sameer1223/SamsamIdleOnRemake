@@ -22,12 +22,23 @@ namespace SamsamIdleOn.UI
                     return;
                 }
 
-                float value = stats.GetValue(stat);
+                float value = GetDisplayValue(stats.GetValue(stat), stat);
                 string valueText = showAsPercent
                     ? $"{value * 100f:0.#}%"
                     : value.ToString(string.IsNullOrWhiteSpace(format) ? "0.#" : format);
 
                 label.text = $"{GetDisplayName(stat)}: {valueText}";
+            }
+
+            private static float GetDisplayValue(float value, CharacterStatType stat)
+            {
+                return stat switch
+                {
+                    CharacterStatType.Luck => 1f + value,
+                    CharacterStatType.XpGain => 1f + value,
+                    CharacterStatType.CritChance => Mathf.Clamp01(value),
+                    _ => value
+                };
             }
 
             private static string GetDisplayName(CharacterStatType stat)
@@ -38,6 +49,7 @@ namespace SamsamIdleOn.UI
                     CharacterStatType.HealthRegen => "HP Regen",
                     CharacterStatType.MaxMana => "Mana",
                     CharacterStatType.ManaRegen => "MP Regen",
+                    CharacterStatType.AttackSpeed => "Atk Spd",
                     CharacterStatType.CritChance => "Crit Chance",
                     CharacterStatType.CritDamage => "Crit Damage",
                     CharacterStatType.MoveSpeed => "Move Speed",

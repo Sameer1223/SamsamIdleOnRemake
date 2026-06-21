@@ -36,8 +36,11 @@ namespace SamsamIdleOn.Inventory
             }
 
             string countText = hasItem && slot.count > 1 ? slot.count.ToString() : string.Empty;
+            string itemNameText = hasItem
+                ? definition != null ? definition.DisplayName : slot.itemId
+                : string.Empty;
             SetText(countTmpLabel, countText);
-            SetText(itemIdLabel, hasItem && definition == null ? slot.itemId : string.Empty);
+            SetText(itemIdLabel, itemNameText);
         }
 
         public void OnBeginDrag(PointerEventData eventData)

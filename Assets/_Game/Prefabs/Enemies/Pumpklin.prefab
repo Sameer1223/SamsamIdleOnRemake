@@ -141,7 +141,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 884d483cbbbeb8e45b273c05a78b342c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Enemies.EnemyHealth
-  maxHealth: 50
+  maxHealth: 40
 --- !u!114 &2603640951240543874
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -159,7 +159,7 @@ MonoBehaviour:
   edgeProbeDistance: 0.8
   groundLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 64
   visualRoot: {fileID: 0}
 --- !u!61 &8850701593062236837
 BoxCollider2D:
@@ -237,7 +237,7 @@ MonoBehaviour:
   drops:
   - item: {fileID: 11400000, guid: 8a2b4b419a4149c4afc4011b7bb84bb2, type: 2}
     itemId: pumpklin_stem
-    dropChance: 1
+    dropChance: 0.5
     minCount: 1
     maxCount: 3
 --- !u!114 &6110828437624901529
@@ -252,10 +252,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8cb28570b8064b50a8c9fb35d098fd4a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Enemies.EnemyRewards2D
-  minExperienceReward: 4
-  maxExperienceReward: 7
-  minCoinBronzeReward: 2
-  maxCoinBronzeReward: 6
+  minExperienceReward: 12
+  maxExperienceReward: 18
+  minCoinBronzeReward: 12
+  maxCoinBronzeReward: 20
 --- !u!1 &7604990675890732945
 GameObject:
   m_ObjectHideFlags: 0

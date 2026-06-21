@@ -1,11 +1,11 @@
 using SamsamIdleOn.Characters;
 using System;
-using SamsamIdleOn.Core;
 using SamsamIdleOn.Enemies;
 using SamsamIdleOn.Stats;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace SamsamIdleOn.Combat
@@ -30,8 +30,23 @@ namespace SamsamIdleOn.Combat
         [SerializeField] private float minimumRerouteDistance = 0.35f;
         [SerializeField, Min(1)] private int attackDamage = 10;
         [SerializeField, Min(0.01f)] private float attacksPerSecond = 1f;
-        [SerializeField, Min(0f)] private float attackSpeedPerAgility = 0.02f;
         [SerializeField] private PlayerStats stats;
+        [SerializeField] private PlayerResources resources;
+
+        [Header("Power Strike")]
+        [SerializeField, Min(0f)] private float powerStrikeManaCost = 15f;
+        [SerializeField, Min(1f)] private float powerStrikeDamageMultiplier = 2f;
+        [SerializeField, Min(0f)] private float powerStrikeCooldownSeconds = 4f;
+        [FormerlySerializedAs("autoUsePowerStrike")]
+        [SerializeField] private bool usePowerStrikeDuringAutoCombat = true;
+
+        [Header("Feedback")]
+        [SerializeField] private Vector3 combatTextOffset = new(0f, 1.25f, 0f);
+        [SerializeField] private Color damageTextColor = new(1f, 0.95f, 0.55f, 1f);
+        [SerializeField] private Color critTextColor = new(1f, 0.35f, 0.2f, 1f);
+        [SerializeField] private Color missTextColor = new(0.75f, 0.85f, 1f, 1f);
+        [SerializeField] private Color powerStrikeTextColor = new(0.45f, 0.85f, 1f, 1f);
+        [SerializeField] private Color powerStrikeDamageTextColor = new(0.35f, 1f, 0.95f, 1f);
 
         [Header("Debug")]
         [SerializeField] private bool logCombatRoutingDebug = true;
@@ -43,20 +58,26 @@ namespace SamsamIdleOn.Combat
 
         private PlayerClickMovement2D movement;
         private PlayerHealth playerHealth;
-        private EnemyHealth pendingTarget;
+        private ICombatTarget pendingTarget;
         private readonly Collider2D[] enemyClickResults = new Collider2D[16];
         private float lastRouteTime = -999f;
         private float nextAttackTime;
         private float nextAutoTargetRefreshTime;
         private Vector2 lastAttackRoutePosition;
         private bool hasLastAttackRoutePosition;
+        private float nextPowerStrikeTime;
+        private bool powerStrikeArmed;
 
         public event Action<bool> AutoCombatChanged;
 
         public bool IsAutoCombatEnabled => autoCombatEnabled;
+        public bool IsPowerStrikeArmed => powerStrikeArmed;
+        public float PowerStrikeManaCost => powerStrikeManaCost;
+        public float PowerStrikeCooldownRemaining => Mathf.Max(0f, nextPowerStrikeTime - Time.time);
+        public float PowerStrikeCooldownDuration => powerStrikeCooldownSeconds;
 
         public bool IsAttacking => pendingTarget != null
-            && pendingTarget.IsAlive
+            && pendingTarget.IsTargetable
             && (playerHealth == null || playerHealth.IsAlive)
             && IsInAttackRange(pendingTarget);
 
@@ -75,9 +96,8 @@ namespace SamsamIdleOn.Combat
         {
             ResolveStats();
 
-            float agility = stats != null ? stats.GetValue(CharacterStatType.Agility) : 0f;
-            float attackSpeedMultiplier = 1f + Mathf.Max(0f, agility) * attackSpeedPerAgility;
-            return Mathf.Max(0.01f, attacksPerSecond * attackSpeedMultiplier);
+            float attackSpeedMultiplier = stats != null ? stats.GetValue(CharacterStatType.AttackSpeed) : 1f;
+            return Mathf.Max(0.01f, attacksPerSecond * Mathf.Max(0.01f, attackSpeedMultiplier));
         }
 
         private void Awake()
@@ -85,6 +105,7 @@ namespace SamsamIdleOn.Combat
             movement = GetComponent<PlayerClickMovement2D>();
             playerHealth = GetComponent<PlayerHealth>();
             ResolveStats();
+            ResolveResources();
 
             if (inputCamera == null)
             {
@@ -153,29 +174,24 @@ namespace SamsamIdleOn.Combat
                 return;
             }
 
-            EnemyHealth enemy = FindClickedEnemy(screenPosition);
+            ICombatTarget target = FindClickedTarget(screenPosition);
 
-            if (enemy == null)
+            if (target == null)
             {
                 pendingTarget = null;
                 return;
             }
 
             movement.SuppressCurrentPointerClick();
-            StartAttacking(enemy);
+            StartAttacking(target);
             UpdatePendingAttack(true);
         }
 
-        private void StartAttacking(EnemyHealth enemy)
+        private void StartAttacking(ICombatTarget target)
         {
-            pendingTarget = enemy;
+            pendingTarget = target;
             nextAttackTime = 0f;
             hasLastAttackRoutePosition = false;
-
-            GameManager gameManager = GameManager.Instance != null
-                ? GameManager.Instance
-                : FindAnyObjectByType<GameManager>();
-            gameManager?.SetOfflineFarmTarget(enemy);
         }
 
         private void UpdateAutoTargeting()
@@ -186,7 +202,7 @@ namespace SamsamIdleOn.Combat
             }
 
             nextAutoTargetRefreshTime = Time.time + autoTargetRefreshSeconds;
-            EnemyHealth target = FindNearestAutoTarget();
+            ICombatTarget target = FindNearestAutoTarget();
 
             if (target == null)
             {
@@ -197,24 +213,27 @@ namespace SamsamIdleOn.Combat
             UpdatePendingAttack(true);
         }
 
-        private EnemyHealth FindNearestAutoTarget()
+        private ICombatTarget FindNearestAutoTarget()
         {
-            EnemyHealth[] enemies = FindObjectsByType<EnemyHealth>(FindObjectsInactive.Exclude);
-            EnemyHealth bestTarget = null;
+            MonoBehaviour[] behaviours = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Exclude);
+            ICombatTarget bestTarget = null;
             float bestSqrDistance = float.MaxValue;
             Vector2 playerPosition = transform.position;
             float maxSqrDistance = maxAutoTargetDistance > 0f
                 ? maxAutoTargetDistance * maxAutoTargetDistance
                 : float.PositiveInfinity;
 
-            foreach (EnemyHealth enemy in enemies)
+            foreach (MonoBehaviour behaviour in behaviours)
             {
-                if (enemy == null || !enemy.IsAlive || !IsInLayerMask(enemy.gameObject.layer, enemyLayers))
+                if (behaviour is not ICombatTarget target
+                    || !target.IsTargetable
+                    || target.TargetComponent == null
+                    || !IsInLayerMask(target.TargetComponent.gameObject.layer, enemyLayers))
                 {
                     continue;
                 }
 
-                float sqrDistance = ((Vector2)enemy.transform.position - playerPosition).sqrMagnitude;
+                float sqrDistance = ((Vector2)target.TargetTransform.position - playerPosition).sqrMagnitude;
 
                 if (sqrDistance > maxSqrDistance || sqrDistance >= bestSqrDistance)
                 {
@@ -222,39 +241,39 @@ namespace SamsamIdleOn.Combat
                 }
 
                 bestSqrDistance = sqrDistance;
-                bestTarget = enemy;
+                bestTarget = target;
             }
 
             return bestTarget;
         }
 
-        private EnemyHealth FindClickedEnemy(Vector2 screenPosition)
+        private ICombatTarget FindClickedTarget(Vector2 screenPosition)
         {
-            EnemyHealth enemyByBounds = FindEnemyByScreenBounds(screenPosition);
+            ICombatTarget targetByBounds = FindTargetByScreenBounds(screenPosition);
 
-            if (enemyByBounds != null)
+            if (targetByBounds != null)
             {
-                return enemyByBounds;
+                return targetByBounds;
             }
 
             Vector2 worldPosition = inputCamera.ScreenToWorldPoint(screenPosition);
             ContactFilter2D filter = CreateEnemyContactFilter();
             int hitCount = Physics2D.OverlapPoint(worldPosition, filter, enemyClickResults);
-            EnemyHealth enemy2D = FindEnemyInHits(hitCount);
+            ICombatTarget target2D = FindTargetInHits(hitCount);
 
-            if (enemy2D != null)
+            if (target2D != null)
             {
-                return enemy2D;
+                return target2D;
             }
 
             if (clickProbeRadius > 0f)
             {
                 hitCount = Physics2D.OverlapCircle(worldPosition, clickProbeRadius, filter, enemyClickResults);
-                enemy2D = FindEnemyInHits(hitCount);
+                target2D = FindTargetInHits(hitCount);
 
-                if (enemy2D != null)
+                if (target2D != null)
                 {
-                    return enemy2D;
+                    return target2D;
                 }
             }
 
@@ -263,7 +282,7 @@ namespace SamsamIdleOn.Combat
 
             if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, layerMask, QueryTriggerInteraction.Collide))
             {
-                return hit.collider.GetComponentInParent<EnemyHealth>();
+                return hit.collider.GetComponentInParent<ICombatTarget>();
             }
 
             return null;
@@ -312,7 +331,7 @@ namespace SamsamIdleOn.Combat
             return filter;
         }
 
-        private EnemyHealth FindEnemyInHits(int hitCount)
+        private ICombatTarget FindTargetInHits(int hitCount)
         {
             for (int i = 0; i < hitCount; i++)
             {
@@ -323,11 +342,11 @@ namespace SamsamIdleOn.Combat
                     continue;
                 }
 
-                EnemyHealth enemy = hit.GetComponentInParent<EnemyHealth>();
+                ICombatTarget target = hit.GetComponentInParent<ICombatTarget>();
 
-                if (enemy != null)
+                if (target != null && target.IsTargetable)
                 {
-                    return enemy;
+                    return target;
                 }
             }
 
@@ -336,24 +355,25 @@ namespace SamsamIdleOn.Combat
 
         private void UpdatePendingAttack(bool forceRoute = false)
         {
-            if (pendingTarget == null || !pendingTarget.IsAlive)
+            if (pendingTarget == null || !pendingTarget.IsTargetable)
             {
                 pendingTarget = null;
                 return;
             }
 
-            float distanceToTarget = GetDistanceToEnemy(pendingTarget);
+            float distanceToTarget = GetDistanceToTarget(pendingTarget);
 
             if (distanceToTarget <= attackRange)
             {
                 if (movement.HasDestination)
                 {
-                    LogCombatRouting($"Target {pendingTarget.name} is in range. Stopping active movement route before attacking.");
+                    LogCombatRouting($"Target {pendingTarget.DisplayName} is in range. Stopping active movement route before attacking.");
                     movement.Stop();
                 }
 
                 if (Time.time >= nextAttackTime)
                 {
+                    TryAutoActivatePowerStrike();
                     Hit(pendingTarget);
                 }
 
@@ -362,7 +382,7 @@ namespace SamsamIdleOn.Combat
 
             if (!forceRoute && movement.HasDestination)
             {
-                LogCombatRouting($"Waiting for active movement route before rerouting to {pendingTarget.name}. Current destination={movement.Destination}");
+                LogCombatRouting($"Waiting for active movement route before rerouting to {pendingTarget.DisplayName}. Current destination={movement.Destination}");
                 return;
             }
 
@@ -378,49 +398,113 @@ namespace SamsamIdleOn.Combat
                 bool routeAccepted = movement.RouteTo(attackPosition);
                 lastAttackRoutePosition = attackPosition;
                 hasLastAttackRoutePosition = routeAccepted;
-                LogCombatRouting($"RouteTo attack target={pendingTarget.name}, attackPosition={attackPosition}, accepted={routeAccepted}, forceRoute={forceRoute}");
+                LogCombatRouting($"RouteTo attack target={pendingTarget.DisplayName}, attackPosition={attackPosition}, accepted={routeAccepted}, forceRoute={forceRoute}");
             }
         }
 
-        private bool IsInAttackRange(EnemyHealth enemy)
+        public bool ActivatePowerStrike()
         {
-            return GetDistanceToEnemy(enemy) <= attackRange;
+            if (powerStrikeArmed)
+            {
+                return true;
+            }
+
+            if (!CanActivatePowerStrike())
+            {
+                ShowPowerStrikeStatusText(GetPowerStrikeFailureText());
+                Debug.Log("Power Strike failed: not enough MP or still on cooldown.", this);
+                return false;
+            }
+
+            resources.TrySpendMana(powerStrikeManaCost);
+            nextPowerStrikeTime = Time.time + powerStrikeCooldownSeconds;
+            powerStrikeArmed = true;
+            ShowPowerStrikeStatusText("2x Ready");
+            Debug.Log($"Power Strike armed. Next hit deals {powerStrikeDamageMultiplier:0.#}x damage.", this);
+            return true;
         }
 
-        private float GetDistanceToEnemy(EnemyHealth enemy)
+        public void ActivatePowerStrikeButton()
+        {
+            ActivatePowerStrike();
+        }
+
+        private bool CanActivatePowerStrike()
+        {
+            ResolveResources();
+
+            return resources != null
+                && Time.time >= nextPowerStrikeTime
+                && resources.CurrentMana >= powerStrikeManaCost;
+        }
+
+        private string GetPowerStrikeFailureText()
+        {
+            ResolveResources();
+
+            if (PowerStrikeCooldownRemaining > 0.05f)
+            {
+                return $"CD {Mathf.CeilToInt(PowerStrikeCooldownRemaining)}s";
+            }
+
+            if (resources == null)
+            {
+                return "No MP";
+            }
+
+            return $"No MP {Mathf.FloorToInt(resources.CurrentMana)}/{Mathf.CeilToInt(powerStrikeManaCost)}";
+        }
+
+        private void TryAutoActivatePowerStrike()
+        {
+            if (autoCombatEnabled && usePowerStrikeDuringAutoCombat && CanActivatePowerStrike())
+            {
+                ActivatePowerStrike();
+            }
+        }
+
+        private bool IsInAttackRange(ICombatTarget target)
+        {
+            return GetDistanceToTarget(target) <= attackRange;
+        }
+
+        private float GetDistanceToTarget(ICombatTarget target)
         {
             Vector2 playerPosition = transform.position;
 
-            if (TryGetEnemyBounds(enemy, out Bounds bounds))
+            if (TryGetTargetBounds(target, out Bounds bounds))
             {
                 Vector2 closestPoint = bounds.ClosestPoint(playerPosition);
                 return Vector2.Distance(playerPosition, closestPoint);
             }
 
-            return Vector2.Distance(playerPosition, enemy.transform.position);
+            return Vector2.Distance(playerPosition, target.TargetTransform.position);
         }
 
-        private Vector2 GetAttackPosition(EnemyHealth enemy)
+        private Vector2 GetAttackPosition(ICombatTarget target)
         {
-            float directionFromEnemy = transform.position.x <= enemy.transform.position.x ? -1f : 1f;
+            float directionFromTarget = transform.position.x <= target.TargetTransform.position.x ? -1f : 1f;
             float horizontalOffset = Mathf.Max(0.1f, attackRange * attackPointInset);
-            return (Vector2)enemy.transform.position + (Vector2.right * directionFromEnemy * horizontalOffset);
+            return (Vector2)target.TargetTransform.position + (Vector2.right * directionFromTarget * horizontalOffset);
         }
 
-        private EnemyHealth FindEnemyByScreenBounds(Vector2 screenPosition)
+        private ICombatTarget FindTargetByScreenBounds(Vector2 screenPosition)
         {
-            EnemyHealth[] enemies = FindObjectsByType<EnemyHealth>(FindObjectsInactive.Exclude);
-            EnemyHealth closestEnemy = null;
+            MonoBehaviour[] behaviours = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Exclude);
+            ICombatTarget closestTarget = null;
             float closestSqrDistance = float.MaxValue;
 
-            foreach (EnemyHealth enemy in enemies)
+            foreach (MonoBehaviour behaviour in behaviours)
             {
-                if (enemy == null || !IsInLayerMask(enemy.gameObject.layer, enemyLayers))
+                if (behaviour is not ICombatTarget target
+                    || !target.IsTargetable
+                    || target.TargetComponent == null
+                    || !IsInLayerMask(target.TargetComponent.gameObject.layer, enemyLayers))
                 {
                     continue;
                 }
 
-                if (!TryGetEnemyBounds(enemy, out Bounds bounds)
+                if (!TryGetTargetBounds(target, out Bounds bounds)
                     || !TryGetScreenRect(bounds, out Rect screenRect))
                 {
                     continue;
@@ -441,37 +525,38 @@ namespace SamsamIdleOn.Combat
                 if (sqrDistance < closestSqrDistance)
                 {
                     closestSqrDistance = sqrDistance;
-                    closestEnemy = enemy;
+                    closestTarget = target;
                 }
             }
 
-            return closestEnemy;
+            return closestTarget;
         }
 
-        private static bool TryGetEnemyBounds(EnemyHealth enemy, out Bounds bounds)
+        private static bool TryGetTargetBounds(ICombatTarget target, out Bounds bounds)
         {
             bool hasBounds = false;
-            bounds = new Bounds(enemy.transform.position, Vector3.zero);
+            Component targetComponent = target.TargetComponent;
+            bounds = new Bounds(target.TargetTransform.position, Vector3.zero);
 
-            foreach (Collider2D enemyCollider in enemy.GetComponentsInChildren<Collider2D>())
+            foreach (Collider2D targetCollider in targetComponent.GetComponentsInChildren<Collider2D>())
             {
-                if (enemyCollider == null || !enemyCollider.enabled)
+                if (targetCollider == null || !targetCollider.enabled)
                 {
                     continue;
                 }
 
                 if (!hasBounds)
                 {
-                    bounds = enemyCollider.bounds;
+                    bounds = targetCollider.bounds;
                     hasBounds = true;
                 }
                 else
                 {
-                    bounds.Encapsulate(enemyCollider.bounds);
+                    bounds.Encapsulate(targetCollider.bounds);
                 }
             }
 
-            foreach (Renderer renderer in enemy.GetComponentsInChildren<Renderer>())
+            foreach (Renderer renderer in targetComponent.GetComponentsInChildren<Renderer>())
             {
                 if (renderer == null || !renderer.enabled)
                 {
@@ -517,16 +602,27 @@ namespace SamsamIdleOn.Combat
             return layerMask.value == 0 || (layerMask.value & (1 << layer)) != 0;
         }
 
-        private void Hit(EnemyHealth enemy)
+        private void Hit(ICombatTarget target)
         {
+            ResolveStats();
+
+            if (TryRollDodge(target))
+            {
+                ShowMissText(target);
+                Debug.Log($"Player missed {target.DisplayName}.", target.TargetComponent);
+                nextAttackTime = Time.time + (1f / GetEffectiveAttacksPerSecond());
+                return;
+            }
+
+            bool usedPowerStrike = powerStrikeArmed;
             int damage = RollDamage(out bool didCrit);
-            enemy.TakeDamage(damage);
-            Debug.Log(
-                $"Player hit {enemy.name} for {damage}{(didCrit ? " CRIT" : string.Empty)}. HP: {enemy.CurrentHealth}/{enemy.MaxHealth}",
-                enemy);
+            target.ApplyHit(damage, gameObject);
+            ShowDamageText(target, damage, didCrit, usedPowerStrike);
+            Debug.Log($"Player hit {target.DisplayName} for {damage}{(didCrit ? " CRIT" : string.Empty)}{(usedPowerStrike ? " POWER STRIKE" : string.Empty)}.", target.TargetComponent);
+            powerStrikeArmed = false;
             nextAttackTime = Time.time + (1f / GetEffectiveAttacksPerSecond());
 
-            if (!enemy.IsAlive)
+            if (!target.IsTargetable)
             {
                 pendingTarget = null;
             }
@@ -540,6 +636,46 @@ namespace SamsamIdleOn.Combat
             }
         }
 
+        private bool TryRollDodge(ICombatTarget target)
+        {
+            if (target?.TargetComponent == null)
+            {
+                return false;
+            }
+
+            EnemyEvasion2D evasion = target.TargetComponent.GetComponentInParent<EnemyEvasion2D>();
+            return evasion != null && evasion.RollDodge(stats);
+        }
+
+        private void ShowDamageText(ICombatTarget target, int damage, bool didCrit, bool usedPowerStrike)
+        {
+            string text = usedPowerStrike ? $"2x {damage}" : damage.ToString();
+            Color color = usedPowerStrike ? powerStrikeDamageTextColor : didCrit ? critTextColor : damageTextColor;
+            FloatingCombatText2D.SpawnDefault(GetCombatTextPosition(target), text, color);
+        }
+
+        private void ShowMissText(ICombatTarget target)
+        {
+            FloatingCombatText2D.SpawnDefault(GetCombatTextPosition(target), "Miss", missTextColor);
+        }
+
+        private void ShowPowerStrikeStatusText(string text)
+        {
+            FloatingCombatText2D.SpawnDefault(transform.position + combatTextOffset, text, powerStrikeTextColor);
+        }
+
+        private Vector3 GetCombatTextPosition(ICombatTarget target)
+        {
+            if (target != null && TryGetTargetBounds(target, out Bounds bounds))
+            {
+                return new Vector3(bounds.center.x, bounds.max.y, bounds.center.z) + combatTextOffset;
+            }
+
+            return target != null
+                ? target.TargetTransform.position + combatTextOffset
+                : transform.position + combatTextOffset;
+        }
+
         private int RollDamage(out bool didCrit)
         {
             ResolveStats();
@@ -550,6 +686,11 @@ namespace SamsamIdleOn.Combat
             float damage = Mathf.Max(1f, attackDamage + strength);
 
             didCrit = UnityEngine.Random.value < Mathf.Clamp01(critChance);
+
+            if (powerStrikeArmed)
+            {
+                damage *= powerStrikeDamageMultiplier;
+            }
 
             if (didCrit)
             {
@@ -569,6 +710,14 @@ namespace SamsamIdleOn.Combat
             if (stats == null)
             {
                 stats = gameObject.AddComponent<PlayerStats>();
+            }
+        }
+
+        private void ResolveResources()
+        {
+            if (resources == null || resources.gameObject != gameObject)
+            {
+                resources = GetComponent<PlayerResources>();
             }
         }
     }

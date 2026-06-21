@@ -4581,7 +4581,7 @@ MonoBehaviour:
     showAsPercent: 0
   - stat: 12
     label: {fileID: 7837433931871336214}
-    format: 
+    format: 0.##x
     showAsPercent: 0
   - stat: 14
     label: {fileID: 2491289101398480949}
@@ -6745,7 +6745,7 @@ MonoBehaviour:
     showAsPercent: 0
   - stat: 12
     label: {fileID: 0}
-    format: 
+    format: 0.##x
     showAsPercent: 0
   - stat: 14
     label: {fileID: 2491289101398480949}
@@ -10949,7 +10949,7 @@ GameObject:
   - component: {fileID: 684006083166934366}
   - component: {fileID: 5932446085854988805}
   m_Layer: 5
-  m_Name: AgilityLabel
+  m_Name: AttackSpeedLabel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -11002,7 +11002,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Agility: 0'
+  m_text: 'Atk Spd: 1'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -20520,7 +20520,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Luck: 0'
+  m_text: 'Luck: 100%'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -24735,7 +24735,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Exp Gain: 0x'
+  m_text: 'XP Gain: 1x'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e939621d1b2ae1d498d99ccbc9bf65ff, type: 3}
-  m_Name: Agility
+  m_Name: Atk Spd
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Upgrades.UpgradeDefinition
-  upgradeId: agility
-  displayName: Agility
+  upgradeId: attack_speed
+  displayName: Atk Spd
   description: 
   stat: 5
   statBonusPerLevel: 0.1

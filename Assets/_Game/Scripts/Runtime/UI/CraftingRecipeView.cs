@@ -133,10 +133,9 @@ namespace SamsamIdleOn.UI
                 return string.Empty;
             }
 
-            string displayName = ResolveItemName(recipe.OutputItem, recipe.OutputItemId);
             return recipe.OutputCount > 1
-                ? $"{displayName} x{recipe.OutputCount}"
-                : displayName;
+                ? $"x{recipe.OutputCount}"
+                : string.Empty;
         }
 
         private string BuildStatBonusText()
@@ -204,6 +203,7 @@ namespace SamsamIdleOn.UI
                 || bonus.Kind == StatModifierKind.MultiplicativePercent
                 || bonus.Stat == CharacterStatType.XpGain
                 || bonus.Stat == CharacterStatType.CoinGain
+                || bonus.Stat == CharacterStatType.AttackSpeed
                 || bonus.Stat == CharacterStatType.CritChance
                 || bonus.Stat == CharacterStatType.Luck;
         }
@@ -223,6 +223,7 @@ namespace SamsamIdleOn.UI
                 CharacterStatType.HealthRegen => "HP Regen",
                 CharacterStatType.MaxMana => "Mana",
                 CharacterStatType.ManaRegen => "MP Regen",
+                CharacterStatType.AttackSpeed => "Atk Spd",
                 CharacterStatType.MoveSpeed => "Move Speed",
                 CharacterStatType.CritChance => "Crit Chance",
                 CharacterStatType.CritDamage => "Crit Damage",

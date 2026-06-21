@@ -1,10 +1,12 @@
 using System;
+using SamsamIdleOn.Combat;
+using SamsamIdleOn.Core;
 using UnityEngine;
 
 namespace SamsamIdleOn.Enemies
 {
     [DisallowMultipleComponent]
-    public sealed class EnemyHealth : MonoBehaviour
+    public sealed class EnemyHealth : MonoBehaviour, ICombatTarget
     {
         [SerializeField, Min(1)] private int maxHealth = 50;
 
@@ -18,6 +20,14 @@ namespace SamsamIdleOn.Enemies
         public int MaxHealth => maxHealth;
 
         public bool IsAlive => !hasDied;
+
+        public bool IsTargetable => IsAlive;
+
+        public string DisplayName => name.Replace("(Clone)", string.Empty).Trim();
+
+        public Transform TargetTransform => transform;
+
+        public Component TargetComponent => this;
 
         private void Awake()
         {
@@ -36,7 +46,7 @@ namespace SamsamIdleOn.Enemies
 
         private void OnDestroy()
         {
-            Die();
+            Die(false);
         }
 
         public void TakeDamage(int damage)
@@ -51,12 +61,22 @@ namespace SamsamIdleOn.Enemies
 
             if (CurrentHealth <= 0)
             {
-                Die();
+                Die(true);
                 Destroy(gameObject);
             }
         }
 
+        public void ApplyHit(int damage, GameObject attacker)
+        {
+            TakeDamage(damage);
+        }
+
         public void Die()
+        {
+            Die(true);
+        }
+
+        private void Die(bool recordKill)
         {
             if (hasDied)
             {
@@ -64,6 +84,15 @@ namespace SamsamIdleOn.Enemies
             }
 
             hasDied = true;
+
+            if (recordKill)
+            {
+                GameManager gameManager = GameManager.Instance != null
+                    ? GameManager.Instance
+                    : FindAnyObjectByType<GameManager>();
+                gameManager?.RecordEnemyKill(DisplayName);
+            }
+
             Died?.Invoke(this);
         }
     }

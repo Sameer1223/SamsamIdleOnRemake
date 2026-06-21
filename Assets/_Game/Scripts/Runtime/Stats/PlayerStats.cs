@@ -17,7 +17,7 @@ namespace SamsamIdleOn.Stats
             CreateDefinition(CharacterStatType.MaxMana, 50f, 1f),
             CreateDefinition(CharacterStatType.ManaRegen, 1f, 0f),
             CreateDefinition(CharacterStatType.Strength, 0f, 0f),
-            CreateDefinition(CharacterStatType.Agility, 0f, 0f),
+            CreateDefinition(CharacterStatType.AttackSpeed, 1f, 0.01f),
             CreateDefinition(CharacterStatType.Luck, 0f, 0f),
             CreateDefinition(CharacterStatType.Accuracy, 0f, 0f),
             CreateDefinition(CharacterStatType.MoveSpeed, 4f, 0.1f),
@@ -279,6 +279,12 @@ namespace SamsamIdleOn.Stats
                 {
                     definitionsByType[definition.Stat] = definition;
                 }
+            }
+
+            if (!definitionsByType.TryGetValue(CharacterStatType.AttackSpeed, out StatDefinition attackSpeedDefinition)
+                || attackSpeedDefinition.BaseValue <= 0f)
+            {
+                definitionsByType[CharacterStatType.AttackSpeed] = CreateDefinition(CharacterStatType.AttackSpeed, 1f, 0.01f);
             }
         }
 

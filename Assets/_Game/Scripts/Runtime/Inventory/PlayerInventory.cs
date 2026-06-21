@@ -41,6 +41,16 @@ namespace SamsamIdleOn.Inventory
             return AddItem(itemId, count, fallbackMaxStack);
         }
 
+        public bool CanAcceptItem(ItemDefinition item, int count)
+        {
+            return item != null && CanAcceptItem(item.Id, count, item.MaxStack);
+        }
+
+        public bool CanAcceptItem(string itemId, int count)
+        {
+            return CanAcceptItem(itemId, count, fallbackMaxStack);
+        }
+
         public bool RemoveItem(string itemId, int count)
         {
             if (string.IsNullOrWhiteSpace(itemId) || count <= 0 || GetItemCount(itemId) < count)
@@ -150,18 +160,49 @@ namespace SamsamIdleOn.Inventory
             }
 
             InventorySlotData targetSlot = slots[targetIndex];
+            int safeMaxStack = GetSafeMaxStack(fallbackMaxStack);
+
+            if (TryFindSlotWithItem(movedSlot.itemId, out int existingIndex, out InventorySlotData existingSlot)
+                && existingIndex != targetIndex)
+            {
+                if (targetSlot != null && !targetSlot.IsEmpty)
+                {
+                    return false;
+                }
+
+                if (existingSlot.count + movedSlot.count > safeMaxStack)
+                {
+                    return false;
+                }
+
+                existingSlot.count += movedSlot.count;
+                CommitChanges();
+                return true;
+            }
 
             if (targetSlot == null || targetSlot.IsEmpty)
             {
                 slots[targetIndex].itemId = movedSlot.itemId;
-                slots[targetIndex].count = ClampStackCount(movedSlot.count);
+                slots[targetIndex].count = Mathf.Min(ClampStackCount(movedSlot.count), safeMaxStack);
+                CommitChanges();
+                return true;
+            }
+
+            if (targetSlot.itemId == movedSlot.itemId)
+            {
+                if (targetSlot.count + movedSlot.count > safeMaxStack)
+                {
+                    return false;
+                }
+
+                targetSlot.count += movedSlot.count;
                 CommitChanges();
                 return true;
             }
 
             displacedSlot = CopySlot(targetSlot);
             targetSlot.itemId = movedSlot.itemId;
-            targetSlot.count = ClampStackCount(movedSlot.count);
+            targetSlot.count = Mathf.Min(ClampStackCount(movedSlot.count), safeMaxStack);
             CommitChanges();
             return true;
         }
@@ -233,7 +274,7 @@ namespace SamsamIdleOn.Inventory
                 }
             }
 
-            return true;
+            return CanAcceptItem(recipe.OutputItemId, recipe.OutputCount, recipe.OutputItem != null ? recipe.OutputItem.MaxStack : fallbackMaxStack);
         }
 
         public bool Craft(CraftingRecipeDefinition recipe)
@@ -248,8 +289,7 @@ namespace SamsamIdleOn.Inventory
                 RemoveItem(ingredient.ItemId, ingredient.Count);
             }
 
-            AddItem(recipe.OutputItemId, recipe.OutputCount);
-            return true;
+            return AddItem(recipe.OutputItemId, recipe.OutputCount, recipe.OutputItem != null ? recipe.OutputItem.MaxStack : fallbackMaxStack);
         }
 
         public void LoadFromSave()
@@ -273,6 +313,8 @@ namespace SamsamIdleOn.Inventory
             }
 
             EnsureSlotCount();
+            EnforceSingleStackPerItem();
+            WriteToSave();
             InventoryChanged?.Invoke(this);
         }
 
@@ -283,25 +325,22 @@ namespace SamsamIdleOn.Inventory
                 return false;
             }
 
-            int remaining = count;
             int safeMaxStack = GetSafeMaxStack(maxStack);
+            int currentCount = GetItemCount(itemId);
+            int availableSpace = Mathf.Max(0, safeMaxStack - currentCount);
 
-            foreach (InventorySlotData slot in slots)
+            if (availableSpace <= 0)
             {
-                if (slot.itemId != itemId || slot.IsEmpty || slot.count >= safeMaxStack)
-                {
-                    continue;
-                }
+                return false;
+            }
 
-                int added = Mathf.Min(remaining, safeMaxStack - slot.count);
-                slot.count += added;
-                remaining -= added;
+            int added = Mathf.Min(count, availableSpace);
 
-                if (remaining <= 0)
-                {
-                    CommitChanges();
-                    return true;
-                }
+            if (TryFindSlotWithItem(itemId, out _, out InventorySlotData existingSlot))
+            {
+                existingSlot.count = Mathf.Min(safeMaxStack, existingSlot.count + added);
+                CommitChanges();
+                return added == count;
             }
 
             foreach (InventorySlotData slot in slots)
@@ -311,20 +350,38 @@ namespace SamsamIdleOn.Inventory
                     continue;
                 }
 
-                int added = Mathf.Min(remaining, safeMaxStack);
                 slot.itemId = itemId;
                 slot.count = added;
-                remaining -= added;
+                CommitChanges();
+                return added == count;
+            }
 
-                if (remaining <= 0)
+            return false;
+        }
+
+        private bool CanAcceptItem(string itemId, int count, int maxStack)
+        {
+            if (string.IsNullOrWhiteSpace(itemId) || count <= 0)
+            {
+                return false;
+            }
+
+            int safeMaxStack = GetSafeMaxStack(maxStack);
+
+            if (TryFindSlotWithItem(itemId, out _, out InventorySlotData existingSlot))
+            {
+                return existingSlot.count + count <= safeMaxStack;
+            }
+
+            foreach (InventorySlotData slot in slots)
+            {
+                if (slot.IsEmpty)
                 {
-                    CommitChanges();
-                    return true;
+                    return count <= safeMaxStack;
                 }
             }
 
-            CommitChanges();
-            return remaining <= 0;
+            return false;
         }
 
         private static InventorySlotData CopySlot(InventorySlotData slot)
@@ -339,6 +396,7 @@ namespace SamsamIdleOn.Inventory
         private void CommitChanges()
         {
             EnsureSlotCount();
+            EnforceSingleStackPerItem();
             WriteToSave();
             InventoryChanged?.Invoke(this);
         }
@@ -377,6 +435,11 @@ namespace SamsamIdleOn.Inventory
             {
                 slots.RemoveAt(slots.Count - 1);
             }
+
+            for (int i = 0; i < slots.Count; i++)
+            {
+                slots[i] ??= new InventorySlotData();
+            }
         }
 
         private void ResolveGameManager()
@@ -406,6 +469,51 @@ namespace SamsamIdleOn.Inventory
         private static int ClampStackCount(int count)
         {
             return Mathf.Clamp(count, 0, MaxItemStack);
+        }
+
+        private bool TryFindSlotWithItem(string itemId, out int index, out InventorySlotData slot)
+        {
+            for (int i = 0; i < slots.Count; i++)
+            {
+                InventorySlotData candidate = slots[i];
+
+                if (candidate != null && !candidate.IsEmpty && candidate.itemId == itemId)
+                {
+                    index = i;
+                    slot = candidate;
+                    return true;
+                }
+            }
+
+            index = -1;
+            slot = null;
+            return false;
+        }
+
+        private void EnforceSingleStackPerItem()
+        {
+            Dictionary<string, InventorySlotData> firstSlotsByItemId = new();
+
+            foreach (InventorySlotData slot in slots)
+            {
+                if (slot == null || slot.IsEmpty)
+                {
+                    continue;
+                }
+
+                slot.count = ClampStackCount(slot.count);
+
+                if (!firstSlotsByItemId.TryGetValue(slot.itemId, out InventorySlotData firstSlot))
+                {
+                    firstSlotsByItemId[slot.itemId] = slot;
+                    continue;
+                }
+
+                int availableSpace = Mathf.Max(0, MaxItemStack - firstSlot.count);
+                int moved = Mathf.Min(slot.count, availableSpace);
+                firstSlot.count += moved;
+                slot.Clear();
+            }
         }
     }
 }

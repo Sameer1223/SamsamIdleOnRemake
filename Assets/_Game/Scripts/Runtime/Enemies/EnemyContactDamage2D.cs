@@ -13,6 +13,12 @@ namespace SamsamIdleOn.Enemies
 
         private readonly Dictionary<PlayerHealth, float> nextDamageTimesByPlayer = new();
 
+        public void Configure(float damageAmount, float cooldownSeconds)
+        {
+            damage = Mathf.Max(0f, damageAmount);
+            damageCooldownSeconds = Mathf.Max(0.01f, cooldownSeconds);
+        }
+
         private void OnTriggerStay2D(Collider2D other)
         {
             if (!other.TryGetComponent(out PlayerHealth playerHealth) || !playerHealth.IsAlive)

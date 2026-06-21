@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using SamsamIdleOn.Core;
 using UnityEngine;
 
 namespace SamsamIdleOn.Enemies
@@ -26,6 +27,7 @@ namespace SamsamIdleOn.Enemies
 
         private void Start()
         {
+            RegisterOfflineFarmTarget();
             SpawnBatch(initialSpawnCount);
         }
 
@@ -92,6 +94,36 @@ namespace SamsamIdleOn.Enemies
                 Debug.LogWarning(
                     $"{nameof(EnemySpawner2D)} on {name} found no ground spawn points. Check groundLayers and spawnArea.",
                     this);
+            }
+        }
+
+        private void RegisterOfflineFarmTarget()
+        {
+            GameManager gameManager = GameManager.Instance != null
+                ? GameManager.Instance
+                : FindAnyObjectByType<GameManager>();
+
+            if (gameManager == null)
+            {
+                return;
+            }
+
+            if (enemyPrefab == null)
+            {
+                gameManager.ClearOfflineFarmTarget();
+                return;
+            }
+
+            EnemyHealth enemyHealth = enemyPrefab.GetComponent<EnemyHealth>()
+                ?? enemyPrefab.GetComponentInChildren<EnemyHealth>();
+
+            if (enemyHealth != null)
+            {
+                gameManager.SetOfflineFarmTarget(enemyHealth);
+            }
+            else
+            {
+                gameManager.ClearOfflineFarmTarget();
             }
         }
 

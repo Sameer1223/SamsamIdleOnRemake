@@ -28,6 +28,7 @@ namespace SamsamIdleOn.Characters
 
         private bool isDead;
         private Coroutine deathRoutine;
+        private int lastKnownMaxHealth;
 
         public event Action<PlayerHealth> HealthChanged;
         public event Action<PlayerHealth> Died;
@@ -53,6 +54,7 @@ namespace SamsamIdleOn.Characters
             ResolveGameManager();
             ResolveStats();
             LoadStats();
+            lastKnownMaxHealth = MaxHealth;
 
             if (testDeathOnStart)
             {
@@ -161,6 +163,7 @@ namespace SamsamIdleOn.Characters
                 WriteHealthToSave();
             }
 
+            lastKnownMaxHealth = MaxHealth;
             HealthChanged?.Invoke(this);
         }
 
@@ -203,7 +206,15 @@ namespace SamsamIdleOn.Characters
 
         private void HandleStatsChanged()
         {
-            CurrentHealth = Mathf.Clamp(CurrentHealth, 0f, MaxHealth);
+            int currentMaxHealth = MaxHealth;
+
+            if (!isDead && currentMaxHealth > lastKnownMaxHealth)
+            {
+                CurrentHealth += currentMaxHealth - lastKnownMaxHealth;
+            }
+
+            CurrentHealth = Mathf.Clamp(CurrentHealth, 0f, currentMaxHealth);
+            lastKnownMaxHealth = currentMaxHealth;
             WriteHealthToSave();
             HealthChanged?.Invoke(this);
         }

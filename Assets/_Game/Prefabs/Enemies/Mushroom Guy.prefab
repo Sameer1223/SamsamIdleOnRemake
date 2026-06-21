@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &6485339324179055207
+--- !u!1 &7373564516628044476
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,38 +8,38 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 5443009623412442090}
-  - component: {fileID: 6212972694570715813}
+  - component: {fileID: 2561718528836665806}
+  - component: {fileID: 3063942397720559478}
   m_Layer: 0
-  m_Name: Decor_234
+  m_Name: Mushroom-Idle_0
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &5443009623412442090
+--- !u!4 &2561718528836665806
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6485339324179055207}
+  m_GameObject: {fileID: 7373564516628044476}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.5, y: 0, z: 0}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1440642494984639693}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!212 &6212972694570715813
+--- !u!212 &3063942397720559478
 SpriteRenderer:
   serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6485339324179055207}
+  m_GameObject: {fileID: 7373564516628044476}
   m_Enabled: 1
   m_CastShadows: 0
   m_ReceiveShadows: 0
@@ -81,12 +81,12 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -423691184, guid: bee6b75004552cd4da074c7877241ac4, type: 3}
+  m_Sprite: {fileID: -654737500350741434, guid: 7473efd9cedfb344197c68fbbe32775b, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_FlipX: 0
+  m_FlipX: 1
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 1, y: 1}
+  m_Size: {x: 2, y: 2.125}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -106,8 +106,9 @@ GameObject:
   - component: {fileID: 5327519398097118371}
   - component: {fileID: 1987381379465534112}
   - component: {fileID: 6110828437624901529}
+  - component: {fileID: 9068507457430389840}
   m_Layer: 8
-  m_Name: Pumpklin 3
+  m_Name: Mushroom Guy
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -141,7 +142,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 884d483cbbbeb8e45b273c05a78b342c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Enemies.EnemyHealth
-  maxHealth: 50
+  maxHealth: 150
 --- !u!114 &2603640951240543874
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -159,7 +160,7 @@ MonoBehaviour:
   edgeProbeDistance: 0.8
   groundLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 64
   visualRoot: {fileID: 0}
 --- !u!61 &8850701593062236837
 BoxCollider2D:
@@ -195,7 +196,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0.01682657}
+  m_Offset: {x: -0.023153007, y: -0.025620818}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -205,7 +206,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 1, y: 0.96634686}
+  m_Size: {x: 1.169789, y: 2.0545394}
   m_EdgeRadius: 0
 --- !u!114 &5327519398097118371
 MonoBehaviour:
@@ -219,8 +220,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bfc8b953e6fa4fd4a9bc413e9fc8ea10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Enemies.EnemyContactDamage2D
-  damage: 5
-  damageCooldownSeconds: 2
+  damage: 25
+  damageCooldownSeconds: 3
 --- !u!114 &1987381379465534112
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -235,9 +236,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Inventory.EnemyLootTable
   targetInventory: {fileID: 0}
   drops:
-  - item: {fileID: 11400000, guid: 8a2b4b419a4149c4afc4011b7bb84bb2, type: 2}
-    itemId: pumpklin_stem
-    dropChance: 1
+  - item: {fileID: 11400000, guid: 4ca180c4ddfb29d43a96904f4141626e, type: 2}
+    itemId: mushroom_slice
+    dropChance: 0.5
     minCount: 1
     maxCount: 3
 --- !u!114 &6110828437624901529
@@ -252,10 +253,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8cb28570b8064b50a8c9fb35d098fd4a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Enemies.EnemyRewards2D
-  minExperienceReward: 4
-  maxExperienceReward: 7
-  minCoinBronzeReward: 2
-  maxCoinBronzeReward: 6
+  minExperienceReward: 55
+  maxExperienceReward: 75
+  minCoinBronzeReward: 240
+  maxCoinBronzeReward: 360
+--- !u!114 &9068507457430389840
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7414026196724406354}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bfc7f5d42814b8ab6e5f0bdb4f0f128, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Enemies.EnemyEvasion2D
+  canDodge: 1
+  baseDodgeChance: 0.5
+  dodgeReductionPerAccuracy: 0.1
+  minimumDodgeChance: 0
+  maximumDodgeChance: 0.5
 --- !u!1 &7604990675890732945
 GameObject:
   m_ObjectHideFlags: 0
@@ -285,98 +303,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 5443009623412442090}
-  - {fileID: 2488065646526056338}
+  - {fileID: 2561718528836665806}
   m_Father: {fileID: 5708902437438113435}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &8880196355409248343
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2488065646526056338}
-  - component: {fileID: 8283308807992274632}
-  m_Layer: 0
-  m_Name: Decor_235
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2488065646526056338
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8880196355409248343}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.5, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1440642494984639693}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!212 &8283308807992274632
-SpriteRenderer:
-  serializedVersion: 2
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8880196355409248343}
-  m_Enabled: 1
-  m_CastShadows: 0
-  m_ReceiveShadows: 0
-  m_DynamicOccludee: 1
-  m_StaticShadowCaster: 0
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 0
-  m_RayTraceProcedural: 0
-  m_RayTracingAccelStructBuildFlagsOverride: 0
-  m_RayTracingAccelStructBuildFlags: 1
-  m_SmallMeshCulling: 1
-  m_ForceMeshLod: -1
-  m_MeshLodSelectionBias: 0
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 2100000, guid: 9dfc825aed78fcd4ba02077103263b40, type: 2}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 0
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_MaskInteraction: 0
-  m_Sprite: {fileID: 1665840665, guid: bee6b75004552cd4da074c7877241ac4, type: 3}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_FlipX: 0
-  m_FlipY: 0
-  m_DrawMode: 0
-  m_Size: {x: 1, y: 1}
-  m_AdaptiveModeThreshold: 0.5
-  m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
-  m_SpriteSortPoint: 0

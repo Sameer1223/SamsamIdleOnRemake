@@ -171,6 +171,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: Portal (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 8894875575892212331, guid: 78f5f5f0e2f9c9b44aef43d465a313bd, type: 3}
+      propertyPath: requiredEnemyId
+      value: Mushroom Guy
+      objectReference: {fileID: 0}
+    - target: {fileID: 8894875575892212331, guid: 78f5f5f0e2f9c9b44aef43d465a313bd, type: 3}
+      propertyPath: unlockRequirement
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 8894875575892212331, guid: 78f5f5f0e2f9c9b44aef43d465a313bd, type: 3}
+      propertyPath: requiredEnemyKills
+      value: 12
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2713,6 +2725,62 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3c7df5992bb64744996642c549ec4480, type: 3}
   m_Name: 
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Characters.PlayerHealth
+--- !u!1 &1930747013
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1930747015}
+  - component: {fileID: 1930747014}
+  m_Layer: 0
+  m_Name: EnemySpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1930747014
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1930747013}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2fc565bb623e4f046828c41e1e0c6c82, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Enemies.EnemySpawner2D
+  enemyPrefab: {fileID: 7414026196724406354, guid: 63253ed6e55cc2d46a45843d0df21925, type: 3}
+  enemyParent: {fileID: 1930747015}
+  initialSpawnCount: 6
+  respawnThreshold: 3
+  respawnBatchCount: 3
+  groundLayers:
+    serializedVersion: 2
+    m_Bits: 64
+  spawnAreaCenter: {x: 0, y: -3.75}
+  spawnAreaSize: {x: 24.9, y: 5.9}
+  groundOffset: 0.05
+  maxSpawnAttempts: 24
+--- !u!4 &1930747015
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1930747013}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.42476, y: 0.74849, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &1941950242 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5833482348937078430, guid: 5f3a52ea0a09b6a45a9a8b759823ae06, type: 3}
@@ -3651,7 +3719,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7559099339967538772, guid: 97b25ecce193eb545812cabe9e86dda5, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 81.02564
+      value: 80.94798
       objectReference: {fileID: 0}
     - target: {fileID: 7626342139467390442, guid: 97b25ecce193eb545812cabe9e86dda5, type: 3}
       propertyPath: m_AnchorMax.y
@@ -3981,6 +4049,7 @@ SceneRoots:
   - {fileID: 2032294628}
   - {fileID: 1395596220}
   - {fileID: 2071601083139957575}
+  - {fileID: 1930747015}
   - {fileID: 1443813136}
   - {fileID: 7617843391879582504}
   - {fileID: 8097942709888588850}

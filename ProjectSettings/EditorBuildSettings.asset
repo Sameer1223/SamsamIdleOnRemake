@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/_Game/Scenes/Home.unity
+    guid: 8c4157022aa046348bfb01999d2cc49d
+  - enabled: 1
     path: Assets/_Game/Scenes/Main.unity
     guid: f6cc915c70cf412478a4278e93ae8934
   - enabled: 1
@@ -20,5 +23,11 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Game/Scenes/Map 4.unity
     guid: 20edfa639bde24a41825d2fe9041c773
+  - enabled: 1
+    path: Assets/_Game/Scenes/Boss Room.unity
+    guid: 1e577bf3222800842862924a3afe6137
+  - enabled: 1
+    path: Assets/_Game/Scenes/Mine.unity
+    guid: 84d056b0491940b4f952ad3896fd450d
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

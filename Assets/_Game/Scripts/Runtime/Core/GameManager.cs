@@ -1,9 +1,12 @@
 using System;
+using System.Collections;
 using SamsamIdleOn.Enemies;
 using SamsamIdleOn.Inventory;
 using SamsamIdleOn.Persistence;
+using SamsamIdleOn.Skills;
 using SamsamIdleOn.Stats;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace SamsamIdleOn.Core
 {
@@ -16,9 +19,10 @@ namespace SamsamIdleOn.Core
         [SerializeField] private bool loadOnAwake = true;
         [SerializeField] private bool saveOnApplicationFocusLost = true;
         [SerializeField] private int baseExperienceToLevel = 100;
-        [SerializeField] private float levelExperienceMultiplier = 1.12f;
-        [SerializeField, Min(0f)] private float levelExperiencePower = 0.45f;
+        [SerializeField] private float levelExperienceMultiplier = 1.07f;
+        [SerializeField, Min(0f)] private float levelExperiencePower = 0.35f;
         [SerializeField, Min(0)] private int talentPointsPerLevel = 1;
+        [SerializeField] private string[] preserveOfflineTargetSceneNames = { "Home" };
 
         private SaveManager saveManager;
         private GameClock clock;
@@ -84,6 +88,8 @@ namespace SamsamIdleOn.Core
 
             instance = this;
             DontDestroyOnLoad(gameObject);
+            SceneManager.sceneLoaded -= HandleSceneLoaded;
+            SceneManager.sceneLoaded += HandleSceneLoaded;
 
             if (loadOnAwake)
             {
@@ -271,6 +277,41 @@ namespace SamsamIdleOn.Core
             StateChanged?.Invoke();
         }
 
+        public void RecordEnemyKill(string enemyId)
+        {
+            EnsureInitialized();
+            SaveData.EnsureDefaults();
+            string safeEnemyId = NormalizeEnemyId(enemyId);
+
+            if (string.IsNullOrWhiteSpace(safeEnemyId))
+            {
+                return;
+            }
+
+            SavedEnemyKillData killData = GetOrCreateEnemyKillData(safeEnemyId);
+            killData.count++;
+            sharedSaveData = SaveData;
+            StateChanged?.Invoke();
+        }
+
+        public int GetEnemyKillCount(string enemyId)
+        {
+            EnsureInitialized();
+            SaveData.EnsureDefaults();
+            string safeEnemyId = NormalizeEnemyId(enemyId);
+
+            foreach (SavedEnemyKillData killData in SaveData.enemyKills)
+            {
+                if (killData != null
+                    && string.Equals(NormalizeEnemyId(killData.enemyId), safeEnemyId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Mathf.Max(0, killData.count);
+                }
+            }
+
+            return 0;
+        }
+
         public void SetOfflineFarmTarget(EnemyHealth enemy)
         {
             EnsureInitialized();
@@ -284,6 +325,7 @@ namespace SamsamIdleOn.Core
             EnemyLootTable lootTable = enemy.GetComponent<EnemyLootTable>();
             SavedOfflineFarmTargetData targetData = new()
             {
+                targetKind = SavedOfflineFarmTargetData.EnemyTargetKind,
                 displayName = enemy.name.Replace("(Clone)", string.Empty).Trim(),
                 enemyHealth = enemy.MaxHealth,
                 minExperienceReward = rewards != null ? rewards.MinExperienceReward : 0,
@@ -302,6 +344,31 @@ namespace SamsamIdleOn.Core
 
             SaveData.offlineFarmTarget = targetData;
             sharedSaveData = SaveData;
+            SaveProgress(false);
+            StateChanged?.Invoke();
+        }
+
+        public void SetOfflineMiningTarget(OreNode2D ore, float actionsPerSecond)
+        {
+            EnsureInitialized();
+
+            if (ore == null)
+            {
+                return;
+            }
+
+            SaveData.offlineFarmTarget = ore.CreateOfflineTargetData(actionsPerSecond);
+            sharedSaveData = SaveData;
+            SaveProgress(false);
+            StateChanged?.Invoke();
+        }
+
+        public void ClearOfflineFarmTarget()
+        {
+            EnsureInitialized();
+            SaveData.offlineFarmTarget = new SavedOfflineFarmTargetData();
+            sharedSaveData = SaveData;
+            SaveProgress(false);
             StateChanged?.Invoke();
         }
 
@@ -309,6 +376,27 @@ namespace SamsamIdleOn.Core
         {
             EnsureInitialized();
             return GetExperienceRequiredForLevel(SaveData.playerLevel);
+        }
+
+        public bool IsFinalBossDefeated()
+        {
+            EnsureInitialized();
+            return SaveData.finalBossDefeated;
+        }
+
+        public void MarkFinalBossDefeated()
+        {
+            EnsureInitialized();
+
+            if (SaveData.finalBossDefeated)
+            {
+                return;
+            }
+
+            SaveData.finalBossDefeated = true;
+            sharedSaveData = SaveData;
+            SaveProgress(false);
+            StateChanged?.Invoke();
         }
 
         public void SaveProgress(bool markClosed = false)
@@ -357,10 +445,57 @@ namespace SamsamIdleOn.Core
 
         private void OnDisable()
         {
+            SceneManager.sceneLoaded -= HandleSceneLoaded;
+
             if (!isDuplicate && isInitialized)
             {
                 SaveProgress(false);
             }
+        }
+
+        private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (!isDuplicate)
+            {
+                StartCoroutine(ClearOfflineTargetIfSceneHasNoActivity(scene.name));
+            }
+        }
+
+        private IEnumerator ClearOfflineTargetIfSceneHasNoActivity(string sceneName)
+        {
+            yield return null;
+            yield return null;
+
+            if (ShouldPreserveOfflineTargetForScene(sceneName))
+            {
+                yield break;
+            }
+
+            if (FindAnyObjectByType<EnemySpawner2D>() != null
+                || FindAnyObjectByType<OreNode2D>() != null)
+            {
+                yield break;
+            }
+
+            ClearOfflineFarmTarget();
+        }
+
+        private bool ShouldPreserveOfflineTargetForScene(string sceneName)
+        {
+            if (string.IsNullOrWhiteSpace(sceneName) || preserveOfflineTargetSceneNames == null)
+            {
+                return false;
+            }
+
+            foreach (string preservedSceneName in preserveOfflineTargetSceneNames)
+            {
+                if (string.Equals(sceneName, preservedSceneName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void ApplyLevelUps()
@@ -393,6 +528,33 @@ namespace SamsamIdleOn.Core
 
             SaveData.statBonuses.Add(nextBonus);
             return nextBonus;
+        }
+
+        private SavedEnemyKillData GetOrCreateEnemyKillData(string enemyId)
+        {
+            foreach (SavedEnemyKillData killData in SaveData.enemyKills)
+            {
+                if (killData != null
+                    && string.Equals(NormalizeEnemyId(killData.enemyId), enemyId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return killData;
+                }
+            }
+
+            SavedEnemyKillData nextData = new()
+            {
+                enemyId = enemyId
+            };
+
+            SaveData.enemyKills.Add(nextData);
+            return nextData;
+        }
+
+        private static string NormalizeEnemyId(string enemyId)
+        {
+            return string.IsNullOrWhiteSpace(enemyId)
+                ? string.Empty
+                : enemyId.Replace("(Clone)", string.Empty).Trim();
         }
 
         private long GetExperienceRequiredForLevel(int level)

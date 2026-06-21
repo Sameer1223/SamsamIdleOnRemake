@@ -16,8 +16,8 @@ MonoBehaviour:
   displayName: Stock Options
   description: Increase coins gained from mobs
   stat: 13
-  statBonusPerLevel: 1
+  statBonusPerLevel: 0.05
   effectKind: 0
   baseCostBronze: 50
-  costGrowthMultiplier: 1.25
+  costGrowthMultiplier: 1.13
   maxLevel: 50

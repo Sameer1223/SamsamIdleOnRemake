@@ -379,7 +379,7 @@ MonoBehaviour:
   maxMana: 50
   manaRegenPerSecond: 1
   gameManager: {fileID: 0}
-  stats: {fileID: 0}
+  stats: {fileID: 5477990219746827079}
 --- !u!114 &7253984180301286142
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -407,8 +407,18 @@ MonoBehaviour:
   minimumRerouteDistance: 0.35
   attackDamage: 10
   attacksPerSecond: 1
-  attackSpeedPerAgility: 0.02
   stats: {fileID: 0}
+  resources: {fileID: 4817142517512762472}
+  powerStrikeManaCost: 15
+  powerStrikeDamageMultiplier: 2
+  powerStrikeCooldownSeconds: 4
+  usePowerStrikeDuringAutoCombat: 1
+  combatTextOffset: {x: 0, y: 1.25, z: 0}
+  damageTextColor: {r: 1, g: 0.95, b: 0.55, a: 1}
+  critTextColor: {r: 1, g: 0.35, b: 0.2, a: 1}
+  missTextColor: {r: 0.75, g: 0.85, b: 1, a: 1}
+  powerStrikeTextColor: {r: 0.45, g: 0.85, b: 1, a: 1}
+  powerStrikeDamageTextColor: {r: 0.35, g: 1, b: 0.95, a: 1}
   logCombatRoutingDebug: 1
   autoCombatEnabled: 0
   autoTargetRefreshSeconds: 0.25
@@ -471,8 +481,8 @@ MonoBehaviour:
     baseValue: 0
     minimumValue: 0
   - stat: 5
-    baseValue: 0
-    minimumValue: 0
+    baseValue: 1
+    minimumValue: 0.01
   - stat: 6
     baseValue: 0
     minimumValue: 0

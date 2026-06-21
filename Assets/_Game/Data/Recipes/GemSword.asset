@@ -21,6 +21,6 @@ MonoBehaviour:
   - item: {fileID: 11400000, guid: 82f3968c0b28245439731ed4dd303618, type: 2}
     itemId: gems
     count: 20
-  outputItem: {fileID: 0}
-  outputItemId: 
+  outputItem: {fileID: 11400000, guid: 6fbf8ed5e801dfb4c9915365bf912b30, type: 2}
+  outputItemId: gem_sword
   outputCount: 1
