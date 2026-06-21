@@ -220,7 +220,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bfc8b953e6fa4fd4a9bc413e9fc8ea10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Enemies.EnemyContactDamage2D
-  damage: 60
+  damage: 15
   damageCooldownSeconds: 5
 --- !u!114 &1987381379465534112
 MonoBehaviour:

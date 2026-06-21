@@ -345,7 +345,8 @@ namespace SamsamIdleOn.Upgrades
                 || stat == CharacterStatType.CoinGain
                 || stat == CharacterStatType.AttackSpeed
                 || stat == CharacterStatType.CritChance
-                || stat == CharacterStatType.Luck;
+                || stat == CharacterStatType.Luck
+                || stat == CharacterStatType.AfkGain;
         }
 
         private static string GetDisplayName(CharacterStatType stat)

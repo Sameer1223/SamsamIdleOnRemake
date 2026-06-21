@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e939621d1b2ae1d498d99ccbc9bf65ff, type: 3}
   m_Name: AFKGains
   m_EditorClassIdentifier: SamsamIdleOn.Runtime::SamsamIdleOn.Upgrades.UpgradeDefinition
-  upgradeId: max_health
-  displayName: Max Health
+  upgradeId: afk_gain
+  displayName: AFK Gains
   description: 
-  stat: 0
-  statBonusPerLevel: 20
+  stat: 15
+  statBonusPerLevel: 0.05
   effectKind: 1
   baseCostBronze: 50
   costGrowthMultiplier: 1.25

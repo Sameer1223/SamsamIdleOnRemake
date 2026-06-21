@@ -2036,7 +2036,7 @@ PrefabInstance:
       objectReference: {fileID: 544410783290006375}
     - target: {fileID: 1360474198578610524, guid: 1e6fce7806460c34a9c006d0c5829fd5, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 104.04
+      value: 71.100006
       objectReference: {fileID: 0}
     - target: {fileID: 1427646693761923810, guid: 1e6fce7806460c34a9c006d0c5829fd5, type: 3}
       propertyPath: m_AnchorMax.y

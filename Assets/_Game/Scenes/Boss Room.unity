@@ -2157,7 +2157,7 @@ MonoBehaviour:
   randomXSpacing: 1.1
   playerAimSpread: 1.3
   maxGroundSampleAttempts: 20
-  fireDamage: 15
+  fireDamage: 40
   damageCooldownSeconds: 0.65
   fireSprite: {fileID: -39236185, guid: bee6b75004552cd4da074c7877241ac4, type: 3}
   fireSpriteScale: 1
